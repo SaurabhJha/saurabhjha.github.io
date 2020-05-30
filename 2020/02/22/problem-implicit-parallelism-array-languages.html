@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+    <!-- My CSS -->
+    <link rel="stylesheet" href="/static/css/index.css">
+    <link rel="stylesheet" href="/static/css/pygments/default.css"/>
+
+    <!-- Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans&display=swap" rel="stylesheet">
+
+    <script type="text/javascript">
+      window.heap=window.heap||[],heap.load=function(e,t){window.heap.appid=e,window.heap.config=t=t||{};var r=t.forceSSL||"https:"===document.location.protocol,a=document.createElement("script");a.type="text/javascript",a.async=!0,a.src=(r?"https:":"http:")+"//cdn.heapanalytics.com/js/heap-"+e+".js";var n=document.getElementsByTagName("script")[0];n.parentNode.insertBefore(a,n);for(var o=function(e){return function(){heap.push([e].concat(Array.prototype.slice.call(arguments,0)))}},p=["addEventProperties","addUserProperties","clearEventProperties","identify","removeEventProperty","setEventProperties","track","unsetEventProperty"],c=0;c<p.length;c++)heap[p[c]]=o(p[c])};heap.load("1137444401");</script>
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async
+            src="https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js">
+    </script>
+
+     <title>Problem&#58; Implicit parallelism in array languages</title>
+  </head>
+  <body>
+    <div class="container">
+  <div class="row">
+    <div class="col">
+      <h1 id="problem-implicit-parallelism-in-array-languages">Problem: Implicit parallelism in array languages</h1>
+<p>Over the past several weeks, I have been thinking about this problem: if we have a programming
+language where the only permissible data type is an array, can we implicitly parallelize
+that? The idea of implicit parallelism, as I understand it, is that the compiler automatically creates
+threads and maps those to the program without the programmer specifying it.</p>
+
+<p>This can become an important problem because of the current trends in processor hardware. The fact is
+that in the last decade, the processor industry has increased the processor speed by adding more
+processing cores to their chips. So a language that can better exploit this parallelism will be faster
+in execution time, all other things being equal.</p>
+
+<p>My hunch is array languages would be more amenable to implicit parallelism because of their
+declarative nature. Now, I don’t know why it should be true. I don’t have any theory for this
+assertion. I am thinking around the fact that SQL is very parallelizable and it may be precisely
+because SQL is declarative. In the same vein, it could be profitable to look at
+relational database optimizers to see if we can apply the same ideas to array languages.</p>
+
+<p>These ideas may have applications in Machine Learning and Computer Vision. I believe this because a
+lot of problems in these areas involve manipulating matrices. So parallel matrix algorithms could
+serve as evaluation benchmarks for this language. The other application area where I think
+we can evaluate this language is the parallel traversals of undirected graphs when they are represented
+as adjacency lists.</p>
+
+<p>The pictures that come to my mind when I think about these things look like these:</p>
+
+<p><img src="/static/img/thread_for_each.png" class="img-responsive center-block" />
+<br /><br />
+<img src="/static/img/thread_subset.png" class="img-responsive center-block" />
+<br /><br />
+<img src="/static/img/single_thread.png" class="img-responsive center-block" />
+<br /><br /></p>
+
+<p>The thing is we can modify the above approach to support hash tables. It may or may not be more challenging
+than arrays.</p>
+
+<p>Another next step of this can be embedding these techniques in more general purpose languages. Broadly,
+this could take a form of a compiler making these parallelism decisions whenever it encounters a data
+structure that can be parallelized.</p>
+
+<p>I am thinking of approaching this problem like this. There is going to be a parser frontend and an optimizer
+backend. I am ignoring the code generation part for now. Both of these parts can be implemented together. The
+parser part is more like a typical compiler and the optimizer part is more like a multithreaded program using
+a set of locks. The optimizer part I feel is going to be influenced by how relational databases are implemented.</p>
+
+<p><img src="/static/img/compiler_phases.png" class="img-responsive center-block" /></p>
+
+<p>In the coming weeks, I will be working more on these ideas and writing about them as the project progresses</p>
+
+    </div>
+  </div>
+</div>
+
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+    <script type="text/javascript">
+    $(document).ready(function() {
+    $("body").tooltip({ selector: '[data-toggle=tooltip]' });
+    });
+    </script>
+  </body>
+</html>

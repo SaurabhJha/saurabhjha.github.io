@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+    <!-- My CSS -->
+    <link rel="stylesheet" href="/static/css/index.css">
+    <link rel="stylesheet" href="/static/css/pygments/default.css"/>
+
+    <!-- Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans&display=swap" rel="stylesheet">
+
+    <script type="text/javascript">
+      window.heap=window.heap||[],heap.load=function(e,t){window.heap.appid=e,window.heap.config=t=t||{};var r=t.forceSSL||"https:"===document.location.protocol,a=document.createElement("script");a.type="text/javascript",a.async=!0,a.src=(r?"https:":"http:")+"//cdn.heapanalytics.com/js/heap-"+e+".js";var n=document.getElementsByTagName("script")[0];n.parentNode.insertBefore(a,n);for(var o=function(e){return function(){heap.push([e].concat(Array.prototype.slice.call(arguments,0)))}},p=["addEventProperties","addUserProperties","clearEventProperties","identify","removeEventProperty","setEventProperties","track","unsetEventProperty"],c=0;c<p.length;c++)heap[p[c]]=o(p[c])};heap.load("1137444401");</script>
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async
+            src="https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js">
+    </script>
+
+     <title>DevOps from a noob's perspective</title>
+  </head>
+  <body>
+    <div class="container">
+  <div class="row">
+    <div class="col">
+      <h1 id="devops-from-a-noobs-perspective">DevOps from a noob’s perspective</h1>
+<p>I am involved in some official project where I got a chance to set up web
+infrastructure. This was the first time I did any kind of system
+administration work so it has been an adventure.</p>
+
+<p>Here are some lessons I learned as I did and continue to do this work.</p>
+
+<h2 id="read-the-fine-manual-rtfm">Read the fine manual (RTFM)</h2>
+<p>Be ready to invest lots of time reading up documentation. For web applications:</p>
+
+<ul>
+  <li>Read up on your hosting provider and how network security works.</li>
+  <li>Read up on servers (web/proxy/database) you are using and how
+they handle requests.</li>
+  <li>Read up on storage components you are administering like database
+servers.</li>
+</ul>
+
+<p>Having this knowledge handy can make recovery easier and less stressful.
+For example, data errors are especially costly and a bug might make you
+desperate as you are looking for some magical band-aid on StackOverflow
+in the middle of an outage.</p>
+
+<p>Common thinking goes something like “We don’t have time to read documentation,
+let’s release our product first”. And this is fine if you want to throw away your
+code and your company in a couple of years. If you are in for some long-term project though,
+the errors you commit here pile on and on. Think of it as a high leverage investment.
+Reading up about this stuff will help to deal with emergencies much easier
+because you have the knowledge of internal workings on your fingertips and you already
+know a few failure modes of the system.</p>
+
+<p>Scenario: I just ran a <code class="language-plaintext highlighter-rouge">DELETE</code> SQL query without qualifying <code class="language-plaintext highlighter-rouge">WHERE</code> what to do?!
+Oh, just stop the database, do a Point-In-Time-Recovery (PITR) and restart it
+again. This will cause downtime but still better than losing data.</p>
+
+<h2 id="use-the-most-boring-tools-possible">Use the most boring tools possible</h2>
+<p>What I mean by that is to use the most solid, middle of the road technologies
+possible. This point has some nuances. The risk you can afford depends on the
+component you are talking about. If we are talking about a tool that measures
+system resources like CPU, RAM, and NIC traffic, you can probably experiment a
+bit. But for something like your primary data store, you absolutely can’t
+afford to take risks because if your data gets corrupted/deleted the recovery
+might be impossible. The idea here is the less the cost of your failures,
+the more risk you can afford.</p>
+
+<p>While I was doing infra, some people suggested Docker. And Docker looks good,
+judging by its hype. I didn’t use it because I don’t know how docker replaces
+processes and how security works in Docker (Docker might not be replacing
+processes at all).</p>
+
+<h2 id="knowledge-of-operating-systems-comes-in-handy">Knowledge of operating systems comes in handy</h2>
+<p>Knowing how kernel operates lets you know</p>
+
+<ul>
+  <li>Why running more than one process on a box might improve its utilization.</li>
+  <li>Why threads don’t suck and event-driven programming is not a panacea.</li>
+  <li>Why threads in python suck if you have some user-level thread library that has preemptive scheduling.</li>
+  <li>Why reading from disk is the same as reading from network and event loops in Linux
+might not help there.</li>
+  <li>Why using HTTP client libraries for internal calls make no sense.</li>
+</ul>
+
+<p>Another less concrete benefit is it can make you spend less money on your infra.
+This is particularly important for companies that hope to make a profit anytime
+soon. And contrary to many people’s opinion, saving money on infra is not
+time-consuming. It comes a lot from intuitive judgment as you get more and more
+familiar with this subject.</p>
+
+<h2 id="invest-in-infrastructure-automation">Invest in infrastructure automation</h2>
+<p>Having your infrastructure automated using tools like Chef, Puppet, or
+Ansible brings these benefits.</p>
+
+<ul>
+  <li>It helps in having identical machines/software and thus identical failure
+modes.</li>
+  <li>The configurations can be reviewed by someone else.</li>
+</ul>
+
+<p>If you have your infra automated, the only hard work you will do is whenever you
+are setting up some component that is different from your existing infra.
+Another way to say that is, going from <code class="language-plaintext highlighter-rouge">0</code> to <code class="language-plaintext highlighter-rouge">1</code> is difficult but going from
+<code class="language-plaintext highlighter-rouge">1</code> to <code class="language-plaintext highlighter-rouge">n</code> is smooth as silk.</p>
+
+<h2 id="have-logging-and-monitoring-in-place">Have logging and monitoring in place</h2>
+<p>This is obvious to anyone who has written a <code class="language-plaintext highlighter-rouge">Hello, World</code> program. But it’s
+still pretty important to have a comprehensive logging system and it brings
+in some benefits.</p>
+
+<ul>
+  <li>Error analysis and postmortem of outages.</li>
+  <li>How requests are distributed across endpoints and where to focus your
+optimization efforts.</li>
+  <li>Replaying requests to a new system before you make it online.</li>
+  <li>Ability to do live experiments.</li>
+</ul>
+
+<p>The more verbose your logs are, the better. The ideal set up is having logs sent to
+a different centralized server with a beefy disk, and have all logs time
+ordered. Just writing this made my mouth water (yeah, I haven’t done it yet).</p>
+
+<h2 id="never-do-infra-stuff-when-you-are-tired">Never do infra stuff when you are tired</h2>
+<p>As a culture, we like to burn our midnight oil. Here’s the deadline, few more
+steps and you will be done. Or maybe your boss has forced you in lockdown mode.
+Or maybe the company will sink if you can’t get this done in the next couple of
+hours.</p>
+
+<p>It might still be fine if you are debugging something. However, doing the
+infra stuff while you are tired can be catastrophic.</p>
+
+<p>Even if you are doing all the nice things like automating and versioning your
+infra, it is hard to review. In my experience, reviewing infra code is harder
+then application code. And infra bugs are harder to find in running systems
+and are much more costly.</p>
+
+<p>In my opinion, doing it while your mind is functioning at an optimal level
+shows your respect towards infra work.</p>
+
+<h2 id="still-learning">Still learning</h2>
+<p>I still have a long way to go I will definitely think about these things
+differently as I get more experienced. But having my thoughts persisted
+somewhere will help in retrospection later.</p>
+
+    </div>
+  </div>
+</div>
+
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+    <script type="text/javascript">
+    $(document).ready(function() {
+    $("body").tooltip({ selector: '[data-toggle=tooltip]' });
+    });
+    </script>
+  </body>
+</html>

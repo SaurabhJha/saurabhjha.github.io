@@ -5,3 +5,10 @@ body {
 .profile-pic {
     width: 150px;
 }
+
+.category-text {
+    font-size: 14px;
+    background: #d9f3f1;
+    padding: 2px 4px;
+    color: black;
+}

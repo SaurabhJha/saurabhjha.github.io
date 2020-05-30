@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+    <!-- My CSS -->
+    <link rel="stylesheet" href="/static/css/index.css">
+    <link rel="stylesheet" href="/static/css/pygments/default.css"/>
+
+    <!-- Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans&display=swap" rel="stylesheet">
+
+    <script type="text/javascript">
+      window.heap=window.heap||[],heap.load=function(e,t){window.heap.appid=e,window.heap.config=t=t||{};var r=t.forceSSL||"https:"===document.location.protocol,a=document.createElement("script");a.type="text/javascript",a.async=!0,a.src=(r?"https:":"http:")+"//cdn.heapanalytics.com/js/heap-"+e+".js";var n=document.getElementsByTagName("script")[0];n.parentNode.insertBefore(a,n);for(var o=function(e){return function(){heap.push([e].concat(Array.prototype.slice.call(arguments,0)))}},p=["addEventProperties","addUserProperties","clearEventProperties","identify","removeEventProperty","setEventProperties","track","unsetEventProperty"],c=0;c<p.length;c++)heap[p[c]]=o(p[c])};heap.load("1137444401");</script>
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async
+            src="https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js">
+    </script>
+
+     <title>Review&#58; End-to-end Arguments in System Design</title>
+  </head>
+  <body>
+    <div class="container">
+  <div class="row">
+    <div class="col">
+      <h1 id="review-end-to-end-arguments-in-system-design">Review: End-to-end Arguments in System Design</h1>
+<p>These are my thoughts on the classic paper “End-to-end Arguments in System
+Design” written by Jerome Saltzer, David Reed, and David Clarke. It’s a very old
+paper; the version I read was published in 1984. The paper argues against
+implementing functionality at lower levels of the system. It appeals to
+application requirements and argues for moving a function upwards in a layered
+system.</p>
+
+<p>I believe these ideas started gaining more ground after the advent of networked
+computers. The concept is motivated using examples from data communication
+networks and transactional systems.</p>
+
+<p>The basic thesis is this: in a layered system, the correctness can only be
+achieved at the end-to-end level. The lower levels don’t have all the information
+needed to do it perfectly.</p>
+
+<p>The first illustrative example in this paper is the file transfer over the network.
+One way to solve reliability issues is to reinforce each step and have retry
+policies on every network hop. Another approach to ensure reliability is
+<em>end-to-end check and retry</em>. End-to-end check and retry policies work
+wonderfully well if network failures are rare. Also, it results in a simpler
+implementation.</p>
+
+<p>I can rephrase this argument in modern terms as follows. Suppose you are
+communicating files using TCP. TCP can ensure that your files have been
+transferred correctly. However, only the application can judge whether that file has
+been processed correctly. The communication system reliability is a performance
+enhancement but in no way it is sufficient.</p>
+
+<p>Since not all of us play at the network level, here’s one more realistic example.
+Suppose you have a set of worker processes. You can communicate jobs to be done
+to workers using a reliable queue. The queue can ensure that jobs are delivered
+to workers. However, only workers can confirm that they have executed the tasks
+communicated to them. The queue itself cannot ensure it.</p>
+
+<p>The conclusion is correctness can only be achieved at the end-to-end level. The
+lower levels can only help with performance. This changes the fundamental
+question. Instead of asking: what do we need to do to make our network highly
+reliable, we should ask: what changes should we do to make applications built on
+top of the network highly performant. Looking at it this way, this has become a
+performance problem. However, it is different from the majority of performance
+problems we encounter in our day-to-day work which look more like empirical
+science.</p>
+
+<ol>
+  <li>You measure the system</li>
+  <li>You identify the bottlenecks</li>
+  <li>You fix those bottlenecks.</li>
+</ol>
+
+<p>In contrast, the original network performance problem described above is more of
+an art problem. How can network help with application performance? Often, it
+differs from application-to-application. I am repeating the excellent example
+given in the paper.</p>
+
+<p>Suppose your application is doing real-time voice communication. In this case,
+having reliability at the network layer would be disastrous. The nature of this
+problem demands that voice packets are fed constantly to the receiver. The lost
+packets should be replaced with silence. However, if your application is
+voice-recording, having a reliable network would make the application faster. That’s
+because voice-recording application have no real-time constraints. The network
+can take its time to ensure that all packets have been transmitted reliably.
+Because of a reliable network, it’s likely that the final end-to-end check will
+work on the first try.</p>
+
+<p>In the conclusion section of the paper, a pitfall is pointed out by the authors:
+Specifying the communication subsystem before the specification of applications that use that
+subsystem. This leads to a burden on the communication subsystem designer who attempts to
+do more to “help” app developers.</p>
+
+<p>I enjoyed reading this paper. You can find it <a href="http://research.cs.wisc.edu/areas/os/Qual/papers/end-to-end.pdf">here</a>.</p>
+
+    </div>
+  </div>
+</div>
+
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+    <script type="text/javascript">
+    $(document).ready(function() {
+    $("body").tooltip({ selector: '[data-toggle=tooltip]' });
+    });
+    </script>
+  </body>
+</html>

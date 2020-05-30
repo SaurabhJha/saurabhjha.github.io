@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+    <!-- My CSS -->
+    <link rel="stylesheet" href="/static/css/index.css">
+    <link rel="stylesheet" href="/static/css/pygments/default.css"/>
+
+    <!-- Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans&display=swap" rel="stylesheet">
+
+    <script type="text/javascript">
+      window.heap=window.heap||[],heap.load=function(e,t){window.heap.appid=e,window.heap.config=t=t||{};var r=t.forceSSL||"https:"===document.location.protocol,a=document.createElement("script");a.type="text/javascript",a.async=!0,a.src=(r?"https:":"http:")+"//cdn.heapanalytics.com/js/heap-"+e+".js";var n=document.getElementsByTagName("script")[0];n.parentNode.insertBefore(a,n);for(var o=function(e){return function(){heap.push([e].concat(Array.prototype.slice.call(arguments,0)))}},p=["addEventProperties","addUserProperties","clearEventProperties","identify","removeEventProperty","setEventProperties","track","unsetEventProperty"],c=0;c<p.length;c++)heap[p[c]]=o(p[c])};heap.load("1137444401");</script>
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async
+            src="https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js">
+    </script>
+
+     <title>A parser for an array language</title>
+  </head>
+  <body>
+    <div class="container">
+  <div class="row">
+    <div class="col">
+      <h1 class="text-center">A parser for an array language</h1>
+<p>In my previous <a href="/2020/02/22/problem-implicit-parallelism-array-languages.html">post</a>, we stated that the goal is to use an array
+language to explore the problems of implicit parallelism. To get started with that, we need an infrastructure on which we can test our
+ideas. Specifically, we need to design and implement an array language before we can tangibly do anything.</p>
+
+<p>We are going to start easy and add features as we go along. In particular, we should keep reminding ourselves that we are not making a
+product to be shipped but a prototype to evaluate our hypotheses. It’s a means to an end, in particular, the compiler we are building
+is a means to evaluate parallelism and nothing else.</p>
+
+<p>This article is organized as follows. We will first design our array language and determine the constructs we need to support. We follow that
+up by designing our lexical analyzer, the part that takes a program text and divides it into tokens. Finally, we design a parser that takes a
+stream of tokens as input and imposes a grammatical structure on them.</p>
+
+<h2 id="language-design">Language design</h2>
+<p>Let’s start by deciding what our language will look like.</p>
+
+<p>At first, we will restrict ourselves to simple arrays by only allowing positive integers as array elements. Later on, we will add
+support for more data types. Concretely, we should add support for an array of arrays and an array of lists to support matrices
+and graphs respectively.</p>
+
+<p>The language is going to support basic arithmetic operations, that is, it can be used as a calculator.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                                          &gt; 3 * 2
+                                          6
+                                          &gt; 213 * (123 + 123213)
+                                          26270568
+</code></pre></div></div>
+
+<p>We can support array arithmetic like this.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                                          &gt; [121, 122, 1232133] + [4, 5, 6]
+                                          [125, 127, 1232139]
+</code></pre></div></div>
+<p>We need to support the application of functions to arrays. There are two kinds of functions.</p>
+<ol>
+  <li>Those that take an integer as an argument and return an integer.</li>
+  <li>Those that take two integers as arguments and return an integer.</li>
+</ol>
+
+<p>Let’s say we have a function named <code class="language-plaintext highlighter-rouge">square</code> that takes an integer as an argument
+and returns an integer. We can do something like this.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                                          &gt; square [1, 2, 3]
+                                          [1, 4, 9]
+</code></pre></div></div>
+<p>Now, let’s say we have a function named <code class="language-plaintext highlighter-rouge">sum</code> that takes two integers as arguments and returns a single integer. We can then do something like this.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                                          &gt; sum [1, 2, 3]
+                                          6
+</code></pre></div></div>
+<p>We can put the following restrictions on these functions.</p>
+<ol>
+  <li>They must return an integer.</li>
+  <li>They must be commutative.</li>
+</ol>
+
+<p>The commutativity is necessary for functions with two arguments to be applied to arrays. An interesting question is whether we can check these
+two properties at compile time.</p>
+
+<p>To apply multiple operators at once, we need to group them using parentheses.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                                          &gt; sum (square [1, 2, 3])
+                                          &gt; square (sum (double [1, 2, 3])
+</code></pre></div></div>
+<p>We also support variables and assignments.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                                          &gt; a = [1, 2, 3]
+                                          &gt; b = 42 * 241
+</code></pre></div></div>
+
+<p>Of course, we need to check whether the operations make sense. For instance, this is wrong.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                                          &gt; [1, 2] + [4, 5, 6, 7, 8]
+</code></pre></div></div>
+
+<p>But a parser cannot check these type errors. For that, we need a semantic analyzer, which is going to be a topic of the next post.</p>
+
+<h2 id="lexical-analyzer">Lexical analyzer</h2>
+<p>To build a lexical analyzer, we need a definition of the basic units of our language. These are called token types. Our tokens are the following:</p>
+<ol>
+  <li>(</li>
+  <li>)</li>
+  <li>positive integers</li>
+  <li>+</li>
+  <li>-</li>
+  <li>*</li>
+  <li>/</li>
+  <li>identifers/variables</li>
+  <li>=</li>
+  <li>==</li>
+</ol>
+
+<p>We represent these tokens using regular expressions. Concretely, we will do that using regular definitions, which are collections of regular
+expressions such that each expression can use variables that are defined before it.</p>
+
+<p>Finally, we need to implement these regular definitions using finite automata. The data structure we use to implement a finite automaton is called
+a transition table.</p>
+
+<p>The regular definition for positive integers is this.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                                          digit  -&gt; 1|2|3|4|5|6|7|8|9|0
+                                          digits -&gt; digitdigit*
+                                          number -&gt; digits
+</code></pre></div></div>
+<p>Using standard methods, we can construct a transition table for <code class="language-plaintext highlighter-rouge">number</code> like this.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                                                | digit |
+                                          ------|-------|
+                                             1  |   2   |   start_state: 1
+                                          ------|-------|   final_states: 2, 3
+                                             2  |   3   |
+                                          ------|-------|
+                                             3  |   3   |
+                                          ------|-------|
+</code></pre></div></div>
+<p>The identifiers consist of letters, digits, and underscore, such that they start with a letter. The regular definition looks like this.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                                          letter_ -&gt; a|b|...|y|z|A|B|...|Z|_|
+                                          id      -&gt; letter_(letter_|digit)*
+</code></pre></div></div>
+<p>And the transition table looks like this.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                                                | letter |  digit  |
+                                          ------|--------|---------|
+                                             1  |    2   |         |   start_state: 1
+                                          ------|--------|---------|   final_states: 2, 3, 4
+                                             2  |    4   |    3    |
+                                          ------|--------|---------|
+                                             3  |    4   |    3    |
+                                          ------|--------|---------|
+                                             4  |    4   |    3    |
+                                          ------|--------|---------|
+</code></pre></div></div>
+<p>For single character tokens like <code class="language-plaintext highlighter-rouge">+</code>, <code class="language-plaintext highlighter-rouge">-</code>, <code class="language-plaintext highlighter-rouge">*</code>, <code class="language-plaintext highlighter-rouge">/</code>, <code class="language-plaintext highlighter-rouge">(</code>, <code class="language-plaintext highlighter-rouge">)</code>, and <code class="language-plaintext highlighter-rouge">=</code>, the transition tables are trivial. If we denote these characters as <code class="language-plaintext highlighter-rouge">chr</code>,
+the table is this.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                                                |  chr  |
+                                          ------|-------|
+                                             1  |   2   |   initial_state: 1
+                                          ------|-------|   final_states: 2
+                                             2  |       |
+                                          ------|-------|
+
+</code></pre></div></div>
+<p>The transition table for <code class="language-plaintext highlighter-rouge">==</code> is as follows.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                                                |   =   |
+                                          ------|-------|
+                                             1  |   2   |   initial_state: 1
+                                          ------|-------|   final_states: 3
+                                             2  |   3   |
+                                          ------|-------|
+</code></pre></div></div>
+<p>Of course, we need to decide between the tokens like <code class="language-plaintext highlighter-rouge">=</code> and <code class="language-plaintext highlighter-rouge">==</code>. We will do this by using the policy of <em>maximal munch</em>; if multiple finite automata match
+different prefixes of the same string, we choose the automaton with the longest matching prefix.</p>
+
+<p>With transition tables in place, we can implement our lexical analyzer. We will give a link to the complete implementation in the conclusion of this post.</p>
+
+<h2 id="parser">Parser</h2>
+<p>Now let’s turn to how can we design a parser for this. To build a parser, we need to construct context-free grammars to recognize the ways the above token
+types can be combined. We will build a top-down LL(1) parser.</p>
+
+<p>In the following, we will represent the empty string with the word <code class="language-plaintext highlighter-rouge">epsilon</code>.</p>
+
+<p>Let’s tackle arithmetic expressions first. The grammar that enforces operator precedence rules looks like this.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                                          expr   --&gt; expr + term | expr - term | term
+                                          term   --&gt; term * factor | term / factor | factor
+                                          factor --&gt; number | (expr)
+</code></pre></div></div>
+<p>Since we are building a top-down parser, we need to remove left-recursion from this grammar. The result looks like this.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Operator grammer
+                                          expr   --&gt; term expr'
+                                          expr'  --&gt; + term expr' | - term expr' | epsilon
+                                          term   --&gt; factor term'
+                                          term'  --&gt; * factor term' | / factor term' | epsilon
+                                          factor --&gt; number | (expr)
+</code></pre></div></div>
+
+<p>Now let’s turn to arrays. The grammar for array looks like the following.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Array grammar
+                                          array  --&gt; [ number rest ]
+                                          rest   --&gt; , number rest | epsilon
+</code></pre></div></div>
+
+<p>We can support array arithmetic by changing the last production of the <code class="language-plaintext highlighter-rouge">Operator grammar</code> from</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                                          factor --&gt; number | (expr)
+</code></pre></div></div>
+<p>to</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                                          factor --&gt; number | array | (expr)
+</code></pre></div></div>
+
+<p>To support assignment, the grammar is this.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                                          assignment --&gt; id = number | id = array
+</code></pre></div></div>
+<p>We need to left-factor this to make it amenable to top-down parsing. The result is this.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Assignment grammar
+                                          assignment --&gt; id = assignee
+                                          assignee   --&gt; number | array
+</code></pre></div></div>
+
+<p>These grammars cover most of the constructs we want to support. We can create a single LL(1) parsing table from these grammars using standard algorithms.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+<p>The implementation is <a href="https://github.com/saurabhjha/roady-lang">here</a>. The components we discussed above constitute roughly half of what is
+traditionally called a compiler frontend. The other half consists of the semantic analyzer, which does type checking, and an intermediate code generator,
+which translates our parse tree to an intermediate representation that can be more easily translated to a target language.</p>
+
+<p>In the upcoming post, we will discuss the semantic analyzer of this language and see how can we add type checking to this language.</p>
+
+    </div>
+  </div>
+</div>
+
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+    <script type="text/javascript">
+    $(document).ready(function() {
+    $("body").tooltip({ selector: '[data-toggle=tooltip]' });
+    });
+    </script>
+  </body>
+</html>

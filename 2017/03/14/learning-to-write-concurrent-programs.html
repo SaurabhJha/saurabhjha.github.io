@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+    <!-- My CSS -->
+    <link rel="stylesheet" href="/static/css/index.css">
+    <link rel="stylesheet" href="/static/css/pygments/default.css"/>
+
+    <!-- Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans&display=swap" rel="stylesheet">
+
+    <script type="text/javascript">
+      window.heap=window.heap||[],heap.load=function(e,t){window.heap.appid=e,window.heap.config=t=t||{};var r=t.forceSSL||"https:"===document.location.protocol,a=document.createElement("script");a.type="text/javascript",a.async=!0,a.src=(r?"https:":"http:")+"//cdn.heapanalytics.com/js/heap-"+e+".js";var n=document.getElementsByTagName("script")[0];n.parentNode.insertBefore(a,n);for(var o=function(e){return function(){heap.push([e].concat(Array.prototype.slice.call(arguments,0)))}},p=["addEventProperties","addUserProperties","clearEventProperties","identify","removeEventProperty","setEventProperties","track","unsetEventProperty"],c=0;c<p.length;c++)heap[p[c]]=o(p[c])};heap.load("1137444401");</script>
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async
+            src="https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js">
+    </script>
+
+     <title>Learning to write concurrent programs</title>
+  </head>
+  <body>
+    <div class="container">
+  <div class="row">
+    <div class="col">
+      <h1 id="learning-to-write-concurrent-programs">Learning to write concurrent programs</h1>
+<p>I taught myself some concurrent programming lately. I did it as part of my
+operating systems studies. In this essay, I will illustrate it using an
+example problem.</p>
+
+<p>I will be illustrating concurrent programming using operating system primitives.
+[1] There are several different ways to do concurrent programming that does
+not involve interacting with the operating system kernel. Even if we restrict
+ourselves to using kernel primitives, there are many variants. I will
+mainly be concerned with concurrency using mutexes and condition variables. In
+literature, it is sometimes called <em>concurrent programming using shared objects</em>.</p>
+
+<h2 id="platform-details">Platform details</h2>
+<p>I developed this program on a Vagrant VM using Virtualbox that ran FreeBSD 10.2.
+Even though I have a lot more experience with Linux [2], I feel I am more
+comfortable using FreeBSD, even though I don’t have a lot of experience with it.
+There are a couple of reasons.</p>
+<ul>
+  <li>The documentation and man pages of FreeBSD are really good.</li>
+  <li>The kernel code of FreeBSD is more readable to me than that of Linux.</li>
+</ul>
+
+<h2 id="problem-definition">Problem definition</h2>
+<p>I am choosing a contrived problem so that we can focus on concurrency,
+without getting distracted by incidental details. The problem is this.</p>
+
+<p>We have a fixed number of integers. Our objective is to calculate the Fibonacci
+number of all these integers. [3] The constraint is, for each integer, we will
+calculate the Fibonacci number exactly once.</p>
+
+<h2 id="general-ideas-about-the-solution">General ideas about the solution</h2>
+<p>We can solve this problem in many different ways. A straightforward
+way is to put all the integers in an array, loop over the array, and calculate
+all Fibonacci numbers. This is fine but we won’t be taking advantage of multiple
+cores. [4] If we can make our program concurrent using threads, it might
+increase its throughput, the number of jobs processed per second.</p>
+
+<p>Concurrent programming is hard because the data structures are shared between
+multiple threads. We need to ensure that the threads access the shared data
+structures safely without causing any inconsistency or corruption.</p>
+
+<p>Since the shared data structure is the central problem here, we will tackle that
+first. What data structure should we choose for this problem? Remember the
+problem is we have got integers and each integer has to be processed exactly
+once.</p>
+
+<p>For this problem, we can use a simple circular queue. It will look like this.
+We can have producer threads enqueuing the queue with integers and we can have
+consumer threads dequeuing integers from queue and process it.</p>
+
+<h2 id="sequential-solution">Sequential solution</h2>
+<p>The struct for a sequential queue looks like this. [5][6]</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">struct</span> <span class="n">queue</span> <span class="p">{</span>
+    <span class="cm">/* State variables */</span>
+    <span class="kt">int</span> <span class="o">*</span><span class="n">storage</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="n">front</span><span class="p">;</span> <span class="cm">/* Front of the queue. Should have element
+                  when queue has at least one. */</span>
+    <span class="kt">int</span> <span class="n">rear</span><span class="p">;</span> <span class="cm">/* Next free slot. Should not have element
+                 unless the queue is full. */</span>
+    <span class="kt">int</span> <span class="n">length</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>Of course, we will have problems with this <code class="language-plaintext highlighter-rouge">struct</code> if multiple threads access
+it simultaneously. We will address this later.</p>
+
+<p>The code that inserts and deletes elements from this queue, as well as mutates its
+state variables, would look like this.</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">struct</span> <span class="n">queue</span> <span class="o">*</span><span class="nf">initialize_queue</span><span class="p">(</span><span class="kt">int</span> <span class="n">queue_length</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="cm">/* Allocate memory for queue_object and queue_object-&gt;storage. */</span>
+    <span class="k">return</span> <span class="n">queue_object</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">void</span> <span class="nf">destruct_queue</span><span class="p">(</span><span class="k">struct</span> <span class="n">queue</span> <span class="o">*</span><span class="n">queue_object</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="cm">/* Free memory of queue_object */</span>
+<span class="p">}</span>
+
+<span class="n">bool</span> <span class="nf">enqueue</span><span class="p">(</span><span class="k">struct</span> <span class="n">queue</span> <span class="o">*</span><span class="n">queue_object</span><span class="p">,</span> <span class="kt">int</span> <span class="n">element</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="cm">/* Try to insert element into queue_object. Return true on success and
+       return false on failure. */</span>
+    <span class="k">return</span> <span class="nb">true</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">int</span> <span class="nf">dequeue</span><span class="p">(</span><span class="k">struct</span> <span class="n">queue</span> <span class="o">*</span><span class="n">queue_object</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="cm">/* Remove the front element from the queue and return it. */</span>
+    <span class="k">return</span> <span class="n">element</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="n">bool</span> <span class="nf">is_queue_full</span><span class="p">(</span><span class="k">struct</span> <span class="n">queue</span> <span class="o">*</span><span class="n">queue_object</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="cm">/* Returns a boolean indicating if the queue is filled up. */</span>
+    <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="n">bool</span> <span class="nf">is_queue_empty</span><span class="p">(</span><span class="k">struct</span> <span class="n">queue</span> <span class="o">*</span><span class="n">queue_object</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="cm">/* Returns a boolean indiciating if the queue is empty. */</span>
+    <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>Now it is very important that all state changes happen inside these functions
+and nowhere else. Its the responsibility of these functions to do insertion/deletion
+of elements and do state changes (for example, changing front and rear properties) safely.
+For simplicity, I will call these functions “public functions” from now on. [7]</p>
+
+<p>Also, note that we have got two simple predicate functions, <code class="language-plaintext highlighter-rouge">is_queue_full</code> and
+<code class="language-plaintext highlighter-rouge">is_queue_empty</code>. They will come in use in a bit.</p>
+
+<h2 id="requirements-of-concurrency">Requirements of concurrency</h2>
+<p>The requirements of concurrency are as follows. We will refine these as we go
+along.</p>
+<ul>
+  <li>Only one thread can execute a public function at a time.</li>
+  <li>If a currently running thread can’t make progress with a public function, it
+must allow other threads to make progress with that function.</li>
+  <li>If a thread is waiting for some condition to become true, we must be able to
+notify that sleeping thread when that condition holds true.</li>
+</ul>
+
+<h2 id="thread-basics">Thread basics</h2>
+<p>First, we will look at how to create and manipulate threads. The standard
+function to create a thread in C is <code class="language-plaintext highlighter-rouge">pthread_create</code>. It is used like this.</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="n">pthread_create</span><span class="p">(</span><span class="o">&amp;</span><span class="n">thread_id</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">thread_attr</span><span class="p">,</span> <span class="n">thread_routine</span><span class="p">,</span> <span class="n">thread_arg</span><span class="p">);</span></code></pre></figure>
+
+<p>Here, <code class="language-plaintext highlighter-rouge">thread_id</code> is a variable of type <code class="language-plaintext highlighter-rouge">pthread_t</code>, <code class="language-plaintext highlighter-rouge">thread_attr</code> is a
+variable of type <code class="language-plaintext highlighter-rouge">pthread_attr_t</code>, <code class="language-plaintext highlighter-rouge">thread_routine</code> is a function that
+takes an argument of type <code class="language-plaintext highlighter-rouge">void *</code> and returns <code class="language-plaintext highlighter-rouge">void *</code> and <code class="language-plaintext highlighter-rouge">thread_arg</code>
+is a variable of type <code class="language-plaintext highlighter-rouge">void *</code> that is passed to <code class="language-plaintext highlighter-rouge">thread_routine</code> function.</p>
+
+<p>Let’s take an example. Suppose we want to execute a function <code class="language-plaintext highlighter-rouge">fib</code> in a
+separate thread. The declaration of <code class="language-plaintext highlighter-rouge">fib</code> looks like this.</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="kt">int</span> <span class="nf">fib</span><span class="p">(</span><span class="kt">int</span> <span class="n">n</span><span class="p">);</span></code></pre></figure>
+
+<p>Suppose we want to calculate <code class="language-plaintext highlighter-rouge">fib(3)</code>. We will call it in a separate thread
+like this.</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="n">pthread_t</span> <span class="n">some_thread_id</span><span class="p">;</span>
+
+<span class="n">pthread_create</span><span class="p">(</span><span class="o">&amp;</span><span class="n">some_thread_id</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="n">fib</span><span class="p">,</span> <span class="mi">3</span><span class="p">);</span></code></pre></figure>
+
+<p>Notice that the second argument, which was supposed to be a <code class="language-plaintext highlighter-rouge">thread_attr</code>, is
+NULL. This is what we do when we want default attributes. Also, notice that the
+<code class="language-plaintext highlighter-rouge">pthread_create</code> spec said that we should use a function that takes a <code class="language-plaintext highlighter-rouge">void *</code> and
+returns a <code class="language-plaintext highlighter-rouge">void *</code> and I am instead passing a function that takes an <code class="language-plaintext highlighter-rouge">int</code> and
+returns an <code class="language-plaintext highlighter-rouge">int</code>. I want to keep things simple and I am relying on the compiler
+to do the type coercions for me. In my experience, these particular coercions
+are safe and do not lead to any corruption or information loss.
+The same holds for the fourth argument <code class="language-plaintext highlighter-rouge">thread_arg</code>.</p>
+
+<p>Suppose in our <code class="language-plaintext highlighter-rouge">main</code> function, we create a thread that executes <code class="language-plaintext highlighter-rouge">fib</code>.
+It will look like this.</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="kt">int</span> <span class="nf">main</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="n">pthread_t</span> <span class="n">random_thread_id</span><span class="p">;</span>
+
+    <span class="n">pthread_t</span><span class="p">(</span><span class="o">&amp;</span><span class="n">random_thread_id</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="n">fib</span><span class="p">,</span> <span class="mi">3</span><span class="p">);</span>
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>The problem is <code class="language-plaintext highlighter-rouge">main</code> can return before the thread finishes execution. To
+<em>wait</em> for the current thread to finish, we use the function <code class="language-plaintext highlighter-rouge">thread_join</code>.</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="kt">int</span> <span class="nf">main</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="n">pthread_t</span> <span class="n">random_thread_id</span><span class="p">;</span>
+
+    <span class="n">pthread_t</span><span class="p">(</span><span class="o">&amp;</span><span class="n">random_thread_id</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="n">fib</span><span class="p">,</span> <span class="mi">3</span><span class="p">);</span>
+    <span class="n">pthread_join</span><span class="p">(</span><span class="n">random_thread_id</span><span class="p">);</span>
+<span class="p">}</span></code></pre></figure>
+
+<p><code class="language-plaintext highlighter-rouge">pthread_join</code> returns immediately if the thread has finished its execution.
+Otherwise, it will block till the thread finishes, and then it will return. By
+induction, if you create n separate threads, you can wait for all n of them to
+complete by doing <code class="language-plaintext highlighter-rouge">pthread_join</code> on all the thread_ids. This is what I did for
+all producer and consumer threads.</p>
+
+<p>There is no guarantee that a thread created by <code class="language-plaintext highlighter-rouge">pthread_create</code> will start
+immediately. Whenever we call <code class="language-plaintext highlighter-rouge">pthread_create</code>, the operating system puts the
+thread into something called the <strong>ready list</strong> of the schedular. The kernel
+schedular then picks up a thread to run from the ready list based on some
+scheduling policy. So, <code class="language-plaintext highlighter-rouge">pthread_create</code> creates a thread and puts it into the
+ready list to be run later.</p>
+
+<h2 id="making-queue-concurrent">Making queue concurrent</h2>
+<p>Now let’s get back to our <code class="language-plaintext highlighter-rouge">queue</code> struct. We want to make do some changes so that
+this data structure can be used by multiple threads safely. Let’s revisit our
+criteria for concurrency.</p>
+<ol>
+  <li>Mutual exclusion: Only one thread can change the state of the queue at a
+time.</li>
+  <li>Wait if we can’t progress: If a thread can’t progress, it must allow other
+threads to make progress.</li>
+  <li>Notify waiting threads: If something happens that allows waiting threads
+to make progress, we should be able to notify them.</li>
+</ol>
+
+<p>Now let’s discuss these requirements in more detail and implement them.</p>
+
+<h3 id="mutual-exclusion">Mutual exclusion</h3>
+<p>The primitive that provides mutual exclusion is called the <strong>mutex</strong>. Its a variable
+of type <code class="language-plaintext highlighter-rouge">pthread_mutex_t</code>. We will consider two functions that operate on mutexes.
+These are <code class="language-plaintext highlighter-rouge">pthread_mutex_lock</code> and <code class="language-plaintext highlighter-rouge">pthread_mutex_unlock</code>. They are used like this.</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="n">pthread_mutex_t</span> <span class="n">my_mutex</span><span class="p">;</span>
+
+<span class="n">pthread_mutex_lock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">my_mutex</span><span class="p">);</span>
+<span class="cm">/* Some code */</span>
+<span class="n">pthread_mutex_unlock</span><span class="p">(</span><span class="o">&amp;</span><span class="n">my_mutex</span><span class="p">);</span></code></pre></figure>
+
+<p>Now, <code class="language-plaintext highlighter-rouge">/* Some code */</code> can only be executed by that one thread who has called
+<code class="language-plaintext highlighter-rouge">pthread_mutex_lock</code> and hasn’t called <code class="language-plaintext highlighter-rouge">pthread_mutex_unlock</code> yet. If a thread
+calls <code class="language-plaintext highlighter-rouge">pthread_mutex_lock</code> while another thread is still using it, the thread
+is stopped and put into a waitlist associated with <code class="language-plaintext highlighter-rouge">my_mutex</code>. Once <code class="language-plaintext highlighter-rouge">my_mutex</code>
+becomes free, one thread is popped from the waitlist of <code class="language-plaintext highlighter-rouge">my_mutex</code> and made
+available to run by putting it back into the ready list.</p>
+
+<p>Our queue struct will look like this now. We add a new field in <code class="language-plaintext highlighter-rouge">struct</code> called
+<code class="language-plaintext highlighter-rouge">mutex</code>.</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">struct</span> <span class="n">queue</span> <span class="p">{</span>
+    <span class="cm">/* State variables */</span>
+    <span class="kt">int</span> <span class="o">*</span><span class="n">storage</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="n">front</span><span class="p">;</span> <span class="cm">/* Front of the queue. Should have element
+                  when queue has at least one. */</span>
+    <span class="kt">int</span> <span class="n">rear</span><span class="p">;</span> <span class="cm">/* Next free slot. Should not have element
+                 unless the queue is full. */</span>
+    <span class="kt">int</span> <span class="n">length</span><span class="p">;</span>
+
+    <span class="cm">/* Synchronization variables */</span>
+    <span class="n">pthread_mutex_t</span> <span class="o">*</span><span class="n">mutex</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>We have got functions that modify the state variables of the <code class="language-plaintext highlighter-rouge">queue</code>. They are
+the <code class="language-plaintext highlighter-rouge">enqueue</code> and the <code class="language-plaintext highlighter-rouge">dequeue</code>. There is no state change outside of these functions.</p>
+
+<p>So <strong>we acquire the lock at the beginning of these functions and release that at the
+end</strong>. We modify our <code class="language-plaintext highlighter-rouge">enqueue</code> and <code class="language-plaintext highlighter-rouge">dequeue</code> functions like this.</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="n">bool</span> <span class="nf">enqueue</span><span class="p">(</span><span class="k">struct</span> <span class="n">queue</span> <span class="o">*</span><span class="n">queue_object</span><span class="p">,</span> <span class="kt">int</span> <span class="n">element</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="cm">/* Try to insert element into queue_object. Return true on success and
+       return false on failure. */</span>
+    <span class="n">pthread_mutex_lock</span><span class="p">(</span><span class="n">queue_object</span><span class="o">-&gt;</span><span class="n">mutex</span><span class="p">);</span>
+    <span class="cm">/* Insertion code */</span>
+    <span class="n">pthread_mutex_unlock</span><span class="p">(</span><span class="n">queue_object</span><span class="o">-&gt;</span><span class="n">mutex</span><span class="p">);</span>
+    <span class="k">return</span> <span class="nb">true</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">int</span> <span class="nf">dequeue</span><span class="p">(</span><span class="k">struct</span> <span class="n">queue</span> <span class="o">*</span><span class="n">queue_object</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="cm">/* Remove the front element from the queue and return it. */</span>
+    <span class="n">pthread_mutex_lock</span><span class="p">(</span><span class="n">queue_object</span><span class="o">-&gt;</span><span class="n">mutex</span><span class="p">);</span>
+    <span class="cm">/* Removal code */</span>
+    <span class="n">pthread_mutex_unlock</span><span class="p">(</span><span class="n">queue_object</span><span class="o">-&gt;</span><span class="n">mutex</span><span class="p">);</span>
+    <span class="k">return</span> <span class="n">element</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>This is where restricting state changes to these functions start paying off.
+We only need to worry about mutual exclusion in these functions. Now it is
+very important to note that <strong>we hold the lock at the beginning and release
+the lock at the end of these functions</strong>. That is, don’t acquire and release
+the locks anywhere else in the code.</p>
+
+<p>You might think that this is inefficient and coarse-grained. Or you might think
+that holding locks like this will increase lock contention (“It changes state
+only in those three lines so let’s just wrap those inside lock”). The problem
+with that approach is it makes it very hard to understand and modify existing
+code safely. Furthermore, it is not inefficient and won’t lead to lock
+contention as we will see right now.</p>
+
+<h3 id="wait-if-we-cant-make-progress">Wait if we can’t make progress</h3>
+<p>Suppose a thread is executing <code class="language-plaintext highlighter-rouge">enqueue</code> and finds that the queue is full. What
+should we do here?</p>
+
+<p>We should give up the mutex we are holding and go to the waiting state. The
+object that helps us achieve this is called a <strong>condition variable</strong>.</p>
+
+<p>Condition variables give us the mechanism to <strong>atomically release the lock
+and go to the waiting state</strong>. A condition variable is a variable of type
+<code class="language-plaintext highlighter-rouge">pthread_cond_t</code> Each condition variable has associated with it
+a waitlist of threads.</p>
+
+<p>We have a function, <code class="language-plaintext highlighter-rouge">pthread_cond_wait</code>, that takes a mutex and a condition variable
+as arguments and releases the mutex and puts the running thread to the waitlist of the condition variable.
+The greatest value provided by <code class="language-plaintext highlighter-rouge">pthread_cond_wait</code> is it does these two operations <em>atomically</em>.
+So if we have code like this.</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="n">pthread_cond_t</span> <span class="o">*</span><span class="n">code_cond_var</span><span class="p">;</span>
+<span class="n">pthread_mutex_t</span> <span class="o">*</span><span class="n">code_mutex</span><span class="p">;</span>
+
+<span class="n">pthread_cond_wait</span><span class="p">(</span><span class="n">code_cond_var</span><span class="p">,</span> <span class="n">code_mutex</span><span class="p">);</span></code></pre></figure>
+
+<p>The thread running this snippet will give up <code class="language-plaintext highlighter-rouge">code_mutex</code> and go to the
+waitlist of <code class="language-plaintext highlighter-rouge">code_cond_var</code>.</p>
+
+<p>When would we want to call <code class="language-plaintext highlighter-rouge">pthread_cond_wait</code>? We want to call it
+whenever we can’t make progress. Whenever we design a shared object and
+deciding on condition variables, we ask this question: When can a thread
+wait? For our problem, the answers will be:</p>
+
+<ol>
+  <li>Whenever we are running <code class="language-plaintext highlighter-rouge">enqueue</code> and the queue is full.</li>
+  <li>Whenever we are running <code class="language-plaintext highlighter-rouge">dequeue</code> and the queue is empty.</li>
+</ol>
+
+<p>Based on that, we would need two condition variables <code class="language-plaintext highlighter-rouge">queue_has_space</code>
+and <code class="language-plaintext highlighter-rouge">queue_has_element</code> for 1) and 2) respectively.</p>
+
+<p>Our queue struct looks like this now.</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">struct</span> <span class="n">queue</span> <span class="p">{</span>
+    <span class="cm">/* State variables */</span>
+    <span class="kt">int</span> <span class="o">*</span><span class="n">storage</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="n">front</span><span class="p">;</span> <span class="cm">/* Front of the queue. Should have element
+                  when queue has at least one. */</span>
+    <span class="kt">int</span> <span class="n">rear</span><span class="p">;</span> <span class="cm">/* Next free slot. Should not have element
+                 unless the queue is full. */</span>
+    <span class="kt">int</span> <span class="n">length</span><span class="p">;</span>
+
+    <span class="cm">/* Synchronization variables */</span>
+    <span class="n">pthread_mutex_t</span> <span class="o">*</span><span class="n">mutex</span><span class="p">;</span>
+    <span class="n">pthread_cond_t</span> <span class="o">*</span><span class="n">queue_has_space</span><span class="p">;</span>
+    <span class="n">pthread_cond_t</span> <span class="o">*</span><span class="n">queue_has_element</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>We added two new fields of type <code class="language-plaintext highlighter-rouge">pthread_cond_t</code>: <code class="language-plaintext highlighter-rouge">queue_has_space</code> and
+<code class="language-plaintext highlighter-rouge">queue_has_element</code>. Our state-changing functions look like this now.</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="n">bool</span> <span class="nf">enqueue</span><span class="p">(</span><span class="k">struct</span> <span class="n">queue</span> <span class="o">*</span><span class="n">queue_object</span><span class="p">,</span> <span class="kt">int</span> <span class="n">element</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="cm">/* Try to insert element into queue_object. Return true on success and
+       return false on failure. */</span>
+    <span class="n">pthread_mutex_lock</span><span class="p">(</span><span class="n">queue_object</span><span class="o">-&gt;</span><span class="n">mutex</span><span class="p">);</span>
+
+    <span class="k">while</span> <span class="p">(</span><span class="n">is_queue_full</span><span class="p">(</span><span class="n">queue_object</span><span class="p">))</span> <span class="p">{</span>
+        <span class="n">pthread_cond_wait</span><span class="p">(</span><span class="n">queue_object</span><span class="o">-&gt;</span><span class="n">queue_has_space</span><span class="p">,</span> <span class="n">queue_object</span><span class="o">-&gt;</span><span class="n">mutex</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="cm">/* Insertion code */</span>
+    <span class="n">pthread_mutex_unlock</span><span class="p">(</span><span class="n">queue_object</span><span class="o">-&gt;</span><span class="n">mutex</span><span class="p">);</span>
+    <span class="k">return</span> <span class="nb">true</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">int</span> <span class="nf">dequeue</span><span class="p">(</span><span class="k">struct</span> <span class="n">queue</span> <span class="o">*</span><span class="n">queue_object</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="cm">/* Remove the front element from the queue and return it. */</span>
+    <span class="n">pthread_mutex_lock</span><span class="p">(</span><span class="n">queue_object</span><span class="o">-&gt;</span><span class="n">mutex</span><span class="p">);</span>
+
+    <span class="k">while</span> <span class="p">(</span><span class="n">is_queue_empty</span><span class="p">(</span><span class="n">queue_object</span><span class="p">))</span> <span class="p">{</span>
+        <span class="n">pthread_cond_wait</span><span class="p">(</span><span class="n">queue_object</span><span class="o">-&gt;</span><span class="n">queue_has_element</span><span class="p">,</span> <span class="n">queue_object</span><span class="o">-&gt;</span><span class="n">mutex</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="cm">/* Removal code */</span>
+    <span class="n">pthread_mutex_unlock</span><span class="p">(</span><span class="n">queue_object</span><span class="o">-&gt;</span><span class="n">mutex</span><span class="p">);</span>
+    <span class="k">return</span> <span class="n">element</span><span class="p">;</span>
+<span class="p">}</span></code></pre></figure>
+
+<p>Let’s look at <code class="language-plaintext highlighter-rouge">enqueue</code>. <code class="language-plaintext highlighter-rouge">pthread_cond_wait</code> atomically releases <code class="language-plaintext highlighter-rouge">queue_object-&gt;mutex</code> and go to the
+waitlist of <code class="language-plaintext highlighter-rouge">queue_object-&gt;queue_has_space</code>. It won’t return until we chose
+to wake up the threads in the waiting list of <code class="language-plaintext highlighter-rouge">queue_object-&gt;queue_has_space</code>.
+We will discuss how to wake up threads that are waiting in the next section.</p>
+
+<p>Notice that we wrapped <code class="language-plaintext highlighter-rouge">pthread_cond_wait</code> calls inside a while loop. This is
+important. <strong>We should always wait on a condition variable inside a while
+loop</strong>. This is because if later, we return from pthread_cond_wait, there is no
+guarantee that the current condition will still allow us to progress. Let’s
+consider an example.</p>
+
+<p>Suppose we only have space for one element in our queue and we have got an
+enqueue thread E1 and two dequeue threads D1 and D2. D1 runs first, sees that
+there is no element to dequeue, releases the lock, and go to the waitlist.
+Now, E1 acquires the lock and fills up the queue with one element. Suppose after that,
+instead of D1, D2 runs and dequeues the thread and we switch to D1. Now, if
+we have our <code class="language-plaintext highlighter-rouge">pthread_cond_wait</code> inside a <code class="language-plaintext highlighter-rouge">while</code> loop, we will check the
+condition again and go to the waitlist. If instead, we had our
+<code class="language-plaintext highlighter-rouge">pthread_cond_wait</code> call inside an <code class="language-plaintext highlighter-rouge">if</code> statement, we would have progressed
+further and might have caused data corruption.</p>
+
+<h3 id="notify-waiting-threads">Notify waiting threads</h3>
+<p>Finally, we want to notify the threads in the waitlist of condition variables
+if they can make progress. For example, after <code class="language-plaintext highlighter-rouge">dequeue</code>, there is a
+chance that some <code class="language-plaintext highlighter-rouge">enqueue</code> thread was waiting for it. For this, we use a
+function <code class="language-plaintext highlighter-rouge">pthread_cond_signal</code>. It wakes up <strong>one</strong> thread from the waitlist
+of a condition variable and puts it into the ready list. [8] Again, as above,
+there is no guarantee that the signaled thread will run immediately. It is put
+into the ready list and its the scheduler’s job to run it according to
+scheduling policy. Its called like this.</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="n">pthread_cond_t</span> <span class="o">*</span><span class="n">code_condvar</span><span class="p">;</span>
+
+<span class="n">pthread_cond_signal</span><span class="p">(</span><span class="n">code_condvar</span><span class="p">);</span></code></pre></figure>
+
+<p>Our <code class="language-plaintext highlighter-rouge">enqueue</code> and <code class="language-plaintext highlighter-rouge">dequeue</code> functions will look like this now.</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="n">bool</span> <span class="nf">enqueue</span><span class="p">(</span><span class="k">struct</span> <span class="n">queue</span> <span class="o">*</span><span class="n">queue_object</span><span class="p">,</span> <span class="kt">int</span> <span class="n">element</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="cm">/* Try to insert element into queue_object. Return true on success and
+       return false on failure. */</span>
+    <span class="n">pthread_mutex_lock</span><span class="p">(</span><span class="n">queue_object</span><span class="o">-&gt;</span><span class="n">mutex</span><span class="p">);</span>
+
+    <span class="k">while</span> <span class="p">(</span><span class="n">is_queue_full</span><span class="p">(</span><span class="n">queue_object</span><span class="p">))</span> <span class="p">{</span>
+        <span class="n">pthread_cond_wait</span><span class="p">(</span><span class="n">queue_object</span><span class="o">-&gt;</span><span class="n">queue_has_space</span><span class="p">,</span> <span class="n">queue_object</span><span class="o">-&gt;</span><span class="n">mutex</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="cm">/* Insertion code */</span>
+    <span class="n">pthread_cond_signal</span><span class="p">(</span><span class="n">queue_object</span><span class="o">-&gt;</span><span class="n">queue_has_element</span><span class="p">);</span>
+    <span class="n">pthread_mutex_unlock</span><span class="p">(</span><span class="n">queue_object</span><span class="o">-&gt;</span><span class="n">mutex</span><span class="p">);</span>
+    <span class="k">return</span> <span class="nb">true</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">int</span> <span class="nf">dequeue</span><span class="p">(</span><span class="k">struct</span> <span class="n">queue</span> <span class="o">*</span><span class="n">queue_object</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="cm">/* Remove the front element from the queue and return it. */</span>
+    <span class="n">pthread_mutex_lock</span><span class="p">(</span><span class="n">queue_object</span><span class="o">-&gt;</span><span class="n">mutex</span><span class="p">);</span>
+
+    <span class="k">while</span> <span class="p">(</span><span class="n">is_queue_empty</span><span class="p">(</span><span class="n">queue_object</span><span class="p">))</span> <span class="p">{</span>
+        <span class="n">pthread_cond_wait</span><span class="p">(</span><span class="n">queue_object</span><span class="o">-&gt;</span><span class="n">queue_has_element</span><span class="p">,</span> <span class="n">queue_object</span><span class="o">-&gt;</span><span class="n">mutex</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="cm">/* Removal stuff */</span>
+    <span class="n">pthread_cond_signal</span><span class="p">(</span><span class="n">queue_object</span><span class="o">-&gt;</span><span class="n">queue_has_space</span><span class="p">);</span>
+    <span class="n">pthread_mutex_unlock</span><span class="p">(</span><span class="n">queue_object</span><span class="o">-&gt;</span><span class="n">mutex</span><span class="p">);</span>
+    <span class="k">return</span> <span class="n">element</span><span class="p">;</span></code></pre></figure>
+
+<p>Concurrent programming has a reputation that we have to reason about the global
+structure of the program. If we wrap our condition variable checks inside a
+<code class="language-plaintext highlighter-rouge">while</code> loop as we did above, we avoid some of that. In our case,
+<code class="language-plaintext highlighter-rouge">pthread_cond_signal</code> can be regarded as a <em>hint</em> for other threads to check if
+they can run again.</p>
+
+<p>Thus, we can liberally do <code class="language-plaintext highlighter-rouge">pthread_cond_signal</code> calls whenever we think we changed
+something that might allow others to progress. We hope that others will check the condition
+again on their end.</p>
+
+<h2 id="general-remarks">General Remarks</h2>
+<p>The full implementation can be found <a href="https://github.com/saurabhjha/bogus-queue">here</a>.</p>
+
+<p>Thread programming using locks has got a bad reputation in recent years.
+Especially for I/O concurrency, if you propose a solution that involves threads,
+others would probably think you have gone nuts. Or maybe fire you while they are
+at it.</p>
+
+<p>However, I still think I would use threads even for I/O concurrency. The
+reasons are</p>
+
+<ol>
+  <li>I don’t want to worry about thread scheduling. The kernel does it for me. It does it
+better than me because it has got privileges I as a user program don’t have.</li>
+  <li>I want my solution to work for any kind of I/O. Network I/O is not the only
+kind of I/O, you know.</li>
+  <li>I want my solution to be portable across UNIX implementations. I don’t want
+to change my implementation from <code class="language-plaintext highlighter-rouge">epoll</code> to <code class="language-plaintext highlighter-rouge">kqueue</code>. [9]</li>
+</ol>
+
+<p>I think this whole sentiment of <em>threads sucks</em> originated from Dan Kegel’s
+landmark C10K paper. [10] It has been updated from time to time but I think the
+kernel implementations have come a long way since then. For example, how much
+do you think it costs to acquire an uncontended lock. It can be as fast as
+10 instructions. In some implementations, it is as low as 2 instructions. [11]</p>
+
+<p>What about processes? <code class="language-plaintext highlighter-rouge">fork</code> is definitely expensive right?
+After all, you have to copy every open file for the child process. Well, in recent
+Copy-On-Write (COW) implementations, [12] you don’t even copy those.</p>
+
+<p>It seems to me that despite all the modernity of developers (using the latest
+frameworks, latest libraries, etc.), they are still programming using old ideas
+about the platforms on which their applications run.</p>
+
+<p>That’s for I/O concurrency. For CPU concurrency, I don’t think there is any
+debate. Thread programming is the way to go.</p>
+
+<p>However, these abstractions of mutexes and condition variables were developed
+for operating system purposes. Are they suitable for application programs? I am
+not sure. For example, Erlang doesn’t use operating system threads or processes
+and its model sounds promising. There have been successful
+companies/projects built on it. I would love to learn Erlang and
+maybe after that I will conclude that all these locks, condition variables, etc.
+are not good abstractions for normal programs. Or maybe I will conclude that
+there is a place for both kinds of abstractions. I am certainly looking forward
+to that.</p>
+
+<p>Incidentally, while I was writing this program, I spent much more time
+implementing sequential queue then concurrency aspects. It is pretty clear to me
+how much I suck in data structures and algorithms. In fact, until last year, I
+used to think of algorithms as a topic that people study to crack job
+interviews. Oh well, better late than never.</p>
+
+<h2 id="further-reading">Further reading</h2>
+<p>If you are interested, these are good books to learn more about the topics
+covered here.</p>
+
+<ol>
+  <li><a href="http://ospp.cs.washington.edu">Operating systems: Principles and Practice</a>
+by Thomas Anderson and Michael Dahlin. Its a pretty recent book.</li>
+  <li><a href="http://www.kohala.com/start/unp.html">Unix network programming</a> by Richard
+Stevens. A classic even though it was written 27 years ago.</li>
+</ol>
+
+<h2 id="notes">Notes</h2>
+
+<p>[1] By kernel primitives, I mean C standard library functions that are
+    interfaces to system calls.<br />
+[2] I basically used it in all my previous projects, official or personal.<br />
+[3] Fibonacci functions is useful to get a wide range of computational time.
+    For example, there’s a noticeable time difference between calculating
+    fibonacci of 1 and fibonacci of 32. I got this idea from one of the David
+    Beazley’s <a href="https://www.youtube.com/watch?v=MCs5OvhV9S4">talk</a>.<br />
+[4] There are number of gotchas with using synchronization variables in multiple
+    cores as well. But I will delve into that in some other essay.<br />
+[5] Its often said that you cannot turn a sequential program into a
+    concurrent one without changing program design in a major way. I haven’t
+    faced this problem here.<br />
+[6] I am using C here. I have omitted details about memory allocation to focus
+    on the ideas. I will give a link to the full implementation in the end.<br />
+[7] If you using  an object oriented language, you can think of it as a queue
+    class having a set of public methods and private state variables.<br />
+[8] There is another function <code class="language-plaintext highlighter-rouge">pthread_cond_broadcast</code> that wakes up all threads
+    in the waiting list at once. We won’t be using it for this problem. But
+    they are useful in some problems, for example in a Readers-Writers lock
+    implementation.<br />
+[9] I really like <code class="language-plaintext highlighter-rouge">kqueue</code> though and I am looking forward to learning and using
+    it.<br />
+[10] http://www.kegel.com/c10k.html <br />
+[11] I am not able to find specific code in FreeBSD that achieve this. However,
+    the basic idea is if the lock is uncontested, we don’t have to go through
+    the schedular, don’t have to acquire schedular’s spinlock and we don’t have
+    to disable interrupts in order to acquire a lock. If the lock is busy
+    though, we get a scheduling overhead. <br />
+[12] They might be pretty old now.<br /></p>
+
+    </div>
+  </div>
+</div>
+
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+    <script type="text/javascript">
+    $(document).ready(function() {
+    $("body").tooltip({ selector: '[data-toggle=tooltip]' });
+    });
+    </script>
+  </body>
+</html>

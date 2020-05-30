@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+    <!-- My CSS -->
+    <link rel="stylesheet" href="/static/css/index.css">
+    <link rel="stylesheet" href="/static/css/pygments/default.css"/>
+
+    <!-- Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans&display=swap" rel="stylesheet">
+
+    <script type="text/javascript">
+      window.heap=window.heap||[],heap.load=function(e,t){window.heap.appid=e,window.heap.config=t=t||{};var r=t.forceSSL||"https:"===document.location.protocol,a=document.createElement("script");a.type="text/javascript",a.async=!0,a.src=(r?"https:":"http:")+"//cdn.heapanalytics.com/js/heap-"+e+".js";var n=document.getElementsByTagName("script")[0];n.parentNode.insertBefore(a,n);for(var o=function(e){return function(){heap.push([e].concat(Array.prototype.slice.call(arguments,0)))}},p=["addEventProperties","addUserProperties","clearEventProperties","identify","removeEventProperty","setEventProperties","track","unsetEventProperty"],c=0;c<p.length;c++)heap[p[c]]=o(p[c])};heap.load("1137444401");</script>
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async
+            src="https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js">
+    </script>
+
+     <title>Writing a command shell</title>
+  </head>
+  <body>
+    <div class="container">
+  <div class="row">
+    <div class="col">
+      <h1 id="writing-a-command-shell">Writing a command shell</h1>
+<p>I got interested in systems programming due to an assignment at work that
+involved sockets. I got curious about what could be happening behind such an
+interface.</p>
+
+<p>I started studying the python interface to sockets. It was very high level and
+I did not learn much. So, I started studying the UNIX interface. With UNIX, I got overwhelmed
+and painfully realized that I won’t be able to understand it unless I know how operating
+systems work. I began my long quest towards learning how low-level things work.</p>
+
+<p>The first program I wrote in this domain was a command shell. It was the
+first significant program I wrote in C.</p>
+
+<h2 id="why-c">Why C?</h2>
+<p>Apart from frivolous reasons like “I wanted to program in C”, I have two good reasons.</p>
+
+<ol>
+  <li>C introduces tiny overhead at runtime compared to other languages. Its
+runtime is so simple that you can guess the assembly instructions of a code
+snippet. This is important because as a job executor, a shell should
+introduce minimum overhead.</li>
+  <li>In C, you get to manage memory yourself. Many people consider it old
+fashioned. But for long-running processes like shell or server, you need very
+tight control over memory. Memory leaks can turn your program into a memory hog.
+Garbage collection subsystems like that of Python do not give any encouragement either.</li>
+</ol>
+
+<h2 id="design-overview">Design overview</h2>
+<p>The purpose of the command shell is to take command strings as input, parse
+them, execute them, and repeat the cycle. Seen this way, you need a part to
+read inputs, a part to parse inputs, and a part to execute inputs. Let
+me describe the road I took to write this whole system.</p>
+
+<h3 id="prototype">Prototype</h3>
+<p>To get my feet wet, I wrote something that echoes back my inputs.</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">input_string</span> <span class="o">=</span> <span class="n">get_new_input</span><span class="p">();</span>
+    <span class="n">print</span><span class="p">(</span><span class="n">input_string</span><span class="p">);</span>
+<span class="p">}</span></code></pre></figure>
+
+<h3 id="parsing-the-input">Parsing the input</h3>
+<p>The next thing I did was this. Given a string obeying certain rules, translate it into a
+format suitable as input for an exec frontend like <code class="language-plaintext highlighter-rouge">execv</code>.</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">input_string</span> <span class="o">=</span> <span class="n">get_new_input</span><span class="p">();</span>
+    <span class="n">input_object</span> <span class="o">=</span> <span class="n">parse</span><span class="p">(</span><span class="n">input_string</span><span class="p">);</span>
+<span class="p">}</span></code></pre></figure>
+
+<h3 id="executing-input">Executing input</h3>
+<p>Finally, we can execute the input object we constructed.</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">input_string</span> <span class="o">=</span> <span class="n">get_new_input</span><span class="p">();</span>
+    <span class="n">input_object</span> <span class="o">=</span> <span class="n">parse</span><span class="p">(</span><span class="n">input_string</span><span class="p">);</span>
+    <span class="n">exec</span><span class="p">(</span><span class="n">input_object</span><span class="p">);</span>
+<span class="p">}</span></code></pre></figure>
+
+<h3 id="continuing-input-processing">Continuing input processing</h3>
+<p>The above snippet will replace the shell process with the program image specified in the
+<code class="language-plaintext highlighter-rouge">input_object</code>. We would like to continue processing new input. One solution is to
+make a copy of the shell process and then replace that copied process with the
+program specified in the <code class="language-plaintext highlighter-rouge">input_object</code>. This copying is done using <code class="language-plaintext highlighter-rouge">fork</code> system call.</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">input_string</span> <span class="o">=</span> <span class="n">get_new_input</span><span class="p">();</span>
+    <span class="n">input_object</span> <span class="o">=</span> <span class="n">parse</span><span class="p">(</span><span class="n">input_string</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">fork</span><span class="p">())</span> <span class="p">{</span>
+        <span class="n">exec</span><span class="p">(</span><span class="n">input_object</span><span class="p">);</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="n">wait</span><span class="p">();</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></figure>
+
+<h3 id="setting-up-a-terminal-interface">Setting up a terminal interface</h3>
+<p>Finally, we want to move our shell to foreground of our terminal
+device. Broadly, I linked the shell file descriptor with the current foreground process group
+associated with terminal device.</p>
+
+<figure class="highlight"><pre><code class="language-c" data-lang="c"><span class="k">while</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+    <span class="cm">/* Kill all process groups not associated with shell */</span>
+    <span class="n">tcsetpgrp</span><span class="p">(</span><span class="n">shell_fd</span><span class="p">,</span> <span class="n">foreground_pgrp</span><span class="p">);</span>
+    <span class="n">input_string</span> <span class="o">=</span> <span class="n">get_new_input</span><span class="p">();</span>
+    <span class="n">input_object</span> <span class="o">=</span> <span class="n">parse</span><span class="p">(</span><span class="n">input_string</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">fork</span><span class="p">())</span> <span class="p">{</span>
+        <span class="n">exec</span><span class="p">(</span><span class="n">input_object</span><span class="p">);</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="n">wait</span><span class="p">();</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></figure>
+
+<h2 id="going-further">Going further</h2>
+<p>The source code of the above description can be found <a href="https://github.com/saurabhjha/bogus-shell">here</a>.
+After some initial excitement, I got bored. There is no single program that can
+solve your problems. To solve interesting problems, you need multiple programs
+communicating with each other. And the best way for communications is the sockets interface.
+The word “sockets” draw a picture of reliable communication over
+ethernet or wifi interfaces. TCP over IPv4 is only one part of the
+operating system’s socket interface. For address spaces, you have UNIX sockets
+as well as raw sockets. For communication semantics, you have TCP, UDP, RAW, and
+SEQPACKET.</p>
+
+<p>But the above stupid program does illustrate some things you need to worry
+about in distributed programs</p>
+
+<h3 id="application-level-protocol">Application-level protocol</h3>
+<p>The input needs to be in a specified format for the program to be able to process
+it. Most of the programmers know about HTTP protocol but I don’t think the
+overhead of parsing HTTP requests is worth it for internal communication in
+network programs. For that, you need a custom protocol.</p>
+
+<h3 id="handling-multiple-clients">Handling multiple clients</h3>
+<p>The shell executes inside a computer and has only one client. But it is not hard
+to see the approach of fork/exec working for multiple clients. Forking a process
+for every client is the classic UNIX approach used since the 1980s. Of course, there
+are other low-overhead approaches like threads or continuations. But many
+<a href="http://www.postgresql.org/docs/current/static/connect-estab.html">programs</a>
+still use this idea.</p>
+
+<h3 id="efficient-memory-allocation">Efficient memory allocation</h3>
+<p>If you notice <a href="https://github.com/SaurabhJha/bogus-shell/blob/master/io.c">here</a>,
+I attempt to minimize memory consumption by reallocating space for command
+string array and freeing the originally allocated array. Memory allocations are
+expensive and there are many projects like <a href="http://www.canonware.com/jemalloc/">jemalloc</a>
+that aim to solve this problem.</p>
+
+<p>This shell was a good starting point for writing the kind of programs that solve
+more intresting problems.</p>
+
+    </div>
+  </div>
+</div>
+
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+    <script type="text/javascript">
+    $(document).ready(function() {
+    $("body").tooltip({ selector: '[data-toggle=tooltip]' });
+    });
+    </script>
+  </body>
+</html>

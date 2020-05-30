@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+    <!-- My CSS -->
+    <link rel="stylesheet" href="/static/css/index.css">
+    <link rel="stylesheet" href="/static/css/pygments/default.css"/>
+
+    <!-- Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans&display=swap" rel="stylesheet">
+
+    <script type="text/javascript">
+      window.heap=window.heap||[],heap.load=function(e,t){window.heap.appid=e,window.heap.config=t=t||{};var r=t.forceSSL||"https:"===document.location.protocol,a=document.createElement("script");a.type="text/javascript",a.async=!0,a.src=(r?"https:":"http:")+"//cdn.heapanalytics.com/js/heap-"+e+".js";var n=document.getElementsByTagName("script")[0];n.parentNode.insertBefore(a,n);for(var o=function(e){return function(){heap.push([e].concat(Array.prototype.slice.call(arguments,0)))}},p=["addEventProperties","addUserProperties","clearEventProperties","identify","removeEventProperty","setEventProperties","track","unsetEventProperty"],c=0;c<p.length;c++)heap[p[c]]=o(p[c])};heap.load("1137444401");</script>
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async
+            src="https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js">
+    </script>
+
+     <title>Review&#58; The Structure of the "THE" Multiprogramming System</title>
+  </head>
+  <body>
+    <div class="container">
+  <div class="row">
+    <div class="col">
+      <h1 id="review-the-structure-of-the-the-multiprogramming-system">Review: The Structure of the “THE” Multiprogramming System</h1>
+<p>This paper was written by the great Edsger Dijkstra. Before reviewing it, I
+should point out a couple of quick facts:</p>
+<ol>
+  <li>It was published in SOSP 1967.</li>
+  <li>It predates UNIX and C.</li>
+</ol>
+
+<p>This paper describes a multiprogramming system named “THE”. It’s main
+contributions are:</p>
+<ol>
+  <li>A demonstration of the concept of software layering and how it leads to better verification
+and testing of a system.</li>
+  <li>The idea of software page-based virtual memory.</li>
+  <li>The idea of semaphore for use in concurrency.</li>
+</ol>
+
+<p>This paper is about fifty years old. I will try to describe it in
+today’s terminology rather than using terms like “core memory”, “drum memory”
+and so on.</p>
+
+<p>The objectives for building this system were:</p>
+<ul>
+  <li>Improvement of throughput for short-duration programs.</li>
+  <li>Economic use of I/O devices.</li>
+  <li>Virtual memory and new techniques for CPU scheduling.</li>
+  <li>Allowing the use of the machine by apps that need functionality rather than the speed of
+the computers. In other words, multiprogramming.</li>
+</ul>
+
+<p>The salient features of this system were:</p>
+<ol>
+  <li>All activities were divided into sequential processes.</li>
+  <li>All processes were organized in a hierarchy.</li>
+  <li>Each hierarchy level implemented one or more abstractions.
+This hierarchical design was crucial for the testing and verification of this
+system. I will expand on this point in more detail after I describe all levels
+in this system.</li>
+</ol>
+
+<p>Prof. Dijkstra was concerned about debugging interrupt handlers. This led to
+the group’s main contribution to the art of system design: division of systems into
+different levels. This enabled the group to demonstrate the correctness of their
+system rather easily.</p>
+
+<p>First, the paper describes the virtual memory mechanism, which is termed as
+“automatic control of secondary storage”. The idea is to have a strict
+distinction between “pages” (in RAM or disk) and information units termed
+“segments”. Pages are a division of RAM and disk in appropriate units. In
+modern systems, a page is 4KB. Segments are the containers of the information and
+have the same size as a page. Segments have a separate identification system
+that allows them to exceed the combined number of RAM and disk pages. This
+independence allowed for a segment to be allocated to a disk page in the most
+optimal way. It also allowed for a program to occupy non-consecutive pages.
+In modern terms, pages would be called physical pages and segments would
+be virtual pages.</p>
+
+<p>Next, the paper describes a multiprogramming environment. There are multiple
+sequential processes, each running at an undetermined speed. Each user program,
+the input, and the output device is represented by a sequential process. The
+coordination between processes is done using semaphores.</p>
+
+<p>Next, the paper describes system levels:</p>
+<ul>
+  <li>Level 0: Schedular in modern terms. A timer interrupt is used to
+multiprogram between multiple sequential processes. Above this level,
+the number of processors on a machine is irrelevant.</li>
+  <li>Level 1: Virtual memory subsystem. This layer is responsible for bookkeeping
+operations of virtual pages and their allocation in physical pages, either
+in RAM or on disk.</li>
+  <li>Level 2: Message interpreter in the original paper. A part of I/O subsystem in
+modern terms. This layer allocates a console keyboard. When a key is pressed,
+the character is sent to the machine along with a device interrupt. Above this
+level, each process thinks they have their private conversational console.
+This sharing is achieved using semaphores. This level was implemented above
+level 1 because conversational load may be huge and may need a backing store.</li>
+  <li>Level 3: Sequential processes associated with the buffering of the input and the output
+streams. In modern terms, I/O subsystem. This abstracts actual devices as
+“logical communication units”. Again, devices are shared using semaphores.</li>
+  <li>Level 4: User programs</li>
+  <li>Level 5: System operator (not sure if this was intended as a joke).</li>
+</ul>
+
+<p>This separation of levels was crucial for testing of the system. For example,
+this enabled them to ignore timer interrupts on level 1 and above, and
+differences between disk speed and processor speed on level 2 and above.
+Layering helped them keep the number of test cases at each level manageable.</p>
+
+<p>I normally ignore appendices. But this paper’s appendix introduced the very
+important idea of semaphores. It is similar to modern semaphores:</p>
+<ul>
+  <li>“P” operation decreases the value of semaphore by 1. If the resulting value
+is non-negative, the process can continue executing the next statement. Otherwise,
+it is put into the waitlist associated with that semaphore</li>
+  <li>“Q” increments a semaphore value to 1. If the resulting value of the semaphore is
+positive, there is no further effect. If it’s nonpositive, one process is
+removed from the waitlist of that semaphore. If there is more than one
+process in the waitlist, any process can be removed from the waitlist;
+there is no ordering between processes in the waitlist.</li>
+</ul>
+
+<p>So the origin of semaphores was in operating systems. It was first used for concurrency
+in operating systems.</p>
+
+<p>Amazingly, this fifty-year-old paper is still so highly relevant. If I
+were a researcher, I would have aspired to write a paper like this. This paper
+is a major achievement not only in the ideas it introduced but also in the prose.</p>
+
+    </div>
+  </div>
+</div>
+
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+    <script type="text/javascript">
+    $(document).ready(function() {
+    $("body").tooltip({ selector: '[data-toggle=tooltip]' });
+    });
+    </script>
+  </body>
+</html>
