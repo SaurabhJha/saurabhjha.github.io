@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+    <!-- My CSS -->
+    <link rel="stylesheet" href="/static/css/index.css">
+    <link rel="stylesheet" href="/static/css/pygments/default.css"/>
+
+    <!-- Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans&display=swap" rel="stylesheet">
+
+    <script type="text/javascript">
+      window.heap=window.heap||[],heap.load=function(e,t){window.heap.appid=e,window.heap.config=t=t||{};var r=t.forceSSL||"https:"===document.location.protocol,a=document.createElement("script");a.type="text/javascript",a.async=!0,a.src=(r?"https:":"http:")+"//cdn.heapanalytics.com/js/heap-"+e+".js";var n=document.getElementsByTagName("script")[0];n.parentNode.insertBefore(a,n);for(var o=function(e){return function(){heap.push([e].concat(Array.prototype.slice.call(arguments,0)))}},p=["addEventProperties","addUserProperties","clearEventProperties","identify","removeEventProperty","setEventProperties","track","unsetEventProperty"],c=0;c<p.length;c++)heap[p[c]]=o(p[c])};heap.load("1137444401");</script>
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async
+            src="https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js">
+    </script>
+
+     <title>Implementing regular expressions</title>
+  </head>
+  <body>
+    <div class="container">
+  <div class="row">
+    <div class="col">
+      <h1 class="text-center">Implementing regular expressions</h1>
+<p><br /></p>
+<h2 id="1-introduction">1. Introduction</h2>
+<p>In this article, we will solve a set of problems around the theme of pattern matching. We will see how to represent string patterns,
+how to determine whether a string matches a pattern, and how to classify substrings of a string given a set of patterns.</p>
+
+<p>That last problem, classifying substrings of a string, is the most important problem treated here. It is often the first component of a
+compiler where it is used to recognize lexical units or “words” in a program text.</p>
+
+<p>The problems considered here have been studied for more than fifty years. They are now standard textbook materials. The
+theories developed here are discussed in detail in <a href="#1">[1]</a> and <a href="#2">[2]</a>. The applications of these techniques to language implementations are comprehensively
+discussed in <a href="#3">[3]</a>.</p>
+
+<p>This article is organized as follows. In section 2, we will give detailed descriptions of the problems we are solving. Then, in section 3,
+we will discuss regular expressions and how they can be used to represent string patterns. After that, in section 4, we will discuss
+the concept of finite automata. Finite automata are the key to implementing textual patterns and in section 5 we will see the technique to
+convert regular expressions to finite automata. Finally, in section 6, we will see an application of these techniques to compute the lexical
+units of a program text.</p>
+
+<h2 id="2-problems">2. Problems</h2>
+<p>The main problem we are treating in this article is this.</p>
+
+<div class="definition">
+  <p class="definition-title">Problem 1:</p>
+  <p>
+    Given a string, classify the substrings according to some string patterns.
+  </p>
+</div>
+
+<p>Here is an instance of this problem. We have a string, <code class="language-plaintext highlighter-rouge">123*53</code>, and we want to classify the substrings according to whether they are numbers 
+or a multiplication operator. In this case, the classification would be this.</p>
+<ol>
+  <li>Two numbers <code class="language-plaintext highlighter-rouge">123</code> and <code class="language-plaintext highlighter-rouge">53</code>.</li>
+  <li>One multiplication operator <code class="language-plaintext highlighter-rouge">*</code>.</li>
+</ol>
+
+<p>To solve this classification problem, we have to solve another related problem.</p>
+
+<div class="definition">
+  <p class="definition-title">Problem 2:</p>
+  <p>Given a string and a string pattern, determine whether that string matches that pattern.</p>
+</div>
+
+<p>For example, if we have a pattern representing all digits, say <code class="language-plaintext highlighter-rouge">D</code>, then <code class="language-plaintext highlighter-rouge">123</code> matches <code class="language-plaintext highlighter-rouge">D</code> but <code class="language-plaintext highlighter-rouge">xyz</code> doesn’t. But what is <code class="language-plaintext highlighter-rouge">D</code> and how is it represented?
+This leads to another problem.</p>
+
+<div class="definition">
+  <p class="definition-title">Problem 3:</p>
+  <p>How do we represent string patterns?</p>
+</div>
+
+<p>To solve problem 1, we need to solve problem 2. And to solve problem 2, we need to solve problem 3. Thus, we proceed as follows. We first
+develop the concept of <em>regular expressions</em> to solve problem 3. Then, we solve problem 2 using the concept of <em>finite automata</em>. Finally,
+we apply the techniques of regular expressions and finite automata to solve problem 1.</p>
+
+<h2 id="3-regular-expressions">3. Regular expressions</h2>
+<p>Regular expressions are the notations to describe textual patterns. They were first introduced by Kleene<a href="#4">[4]</a> and they are used to express statements like:</p>
+<ul>
+  <li>A positive integer such that individual digits are between 1 and 4. Examples are <code class="language-plaintext highlighter-rouge">124</code>, <code class="language-plaintext highlighter-rouge">1</code>, and <code class="language-plaintext highlighter-rouge">323</code>.</li>
+  <li>A string of alphabets and digits (alphanumeric characters) such that it begins with a letter. For example, <code class="language-plaintext highlighter-rouge">a12</code>, <code class="language-plaintext highlighter-rouge">z14</code>, and <code class="language-plaintext highlighter-rouge">hdf21</code>.</li>
+</ul>
+
+<p>To build the concept of regular expressions, we need to develop some preliminaries. In particular, we need to define what a language is and what are
+the language operators.</p>
+
+<h4 id="language">Language</h4>
+<p>The most basic object we are dealing with is a single string. A string is either empty or non-empty.</p>
+
+<div>
+  <p>We represent the empty string with \(\epsilon\).</p>
+</div>
+
+<p>We can now define the concept of a language.</p>
+
+<div class="definition">
+  <p class="definition-title">Definition 1: Language</p>
+  <p>
+    A language is defined as a set of strings.
+  </p>
+</div>
+
+<p>For example, \(X = \{a, b, c\}\) is a language consisting of three single character strings <code class="language-plaintext highlighter-rouge">a</code>, <code class="language-plaintext highlighter-rouge">b</code>, and <code class="language-plaintext highlighter-rouge">c</code>. The language \(Y = \{abc, def\}\) consists of two strings, <code class="language-plaintext highlighter-rouge">abc</code> and <code class="language-plaintext highlighter-rouge">def</code>. The language \(Z = \{xy\thinspace|\thinspace x \in \{a, b, c\} and \thinspace y \in \{d, e, f\}\}\) is the same as the language \(W = \{ad, ae, af, bd, be, bf, cd, ce, cf\}.\)</p>
+
+<p>Languages are usually denoted by capital letters like A, B, X, and Y.</p>
+
+<h4 id="language-operators">Language operators</h4>
+<p>How do we combine languags?. We combine languages using language operators which are defined below.</p>
+
+<div class="definition">
+  <p class="definition-title">Definition 2: Union</p>
+  <p>
+    If we have two languages \(X\) and \(Y\), then their union, represented by \( X \cup Y \), is the set of strings that are either in \(X\) or in \(Y\).
+  </p>
+  <p>
+    $$
+    X \cup Y = \{w | w \in X or \thinspace w \in Y\}
+    $$
+  </p>
+</div>
+
+<div>
+  <p>
+    For example, if we have two languages \(X = \{ab, bc, cd\}\) and \(Y = \{wx, xy, yz\}\), then \(X \cup Y\) is \(\{ab, bc, cd, wx, xy, yz\}\).
+  </p>
+</div>
+
+<div class="definition">
+  <p class="definition-title">Definition 3: Concatenation</p>
+  <p>If we have two languages \(X\) and \(Y\), then their concatenation, represented by \(X\).\(Y\), is the set of strings \(vw\) such that \(v\) is in \(X\) and \(w\) is in \(Y\).</p>
+  <p>
+    $$
+    X.Y = \{vw | v \in X and \thinspace w \in Y\}
+    $$
+  </p>
+</div>
+
+<div>
+  <p>
+    Using the same example as above, for two languages \(X = \{ab, bc, cd\}\) and \(Y = \{wx, xy, yz\}\), \(X\).\(Y\)
+    is \(\{abwx, abxy, abyz, bcwx, bcwy, bcyz,\) \(cdwx, cdxy, cdyz\}\).
+  </p>
+</div>
+
+<p>The next operator is a slightly trickier one. It is an application of concatenation on the strings from a single language. The number of concatenations can
+be zero, in which it case it is an empty string, or it can be any number of times.</p>
+
+<div class="definition">
+  <p class="definition-title">Definition 4: Kleene star</p>
+  <p>
+    If we have a language \(X\), then its kleene star, denoted by \(X*\), is a set of strings constructed by the concatenation of the strings of
+    \(X\) zero or more times.
+  </p>
+  <p>
+    $$
+    X* = \{wx....yz | w, x, y, z... \in X \}
+    $$
+  </p>
+</div>
+<div>
+  <p>
+    For example, if \( X = \{abc, xyz\} \), then \(X* = \{\epsilon\ , abcabc, abcxyz, xyzxyz, abcabcxyz, abcxyzxyz, xyzxyzxyz....\}\).
+  </p>
+</div>
+
+<h4 id="regular-expressions">Regular expressions</h4>
+<p>Suppose we want to represent all strings that consist of the characters <code class="language-plaintext highlighter-rouge">a</code>, <code class="language-plaintext highlighter-rouge">b</code>, <code class="language-plaintext highlighter-rouge">c</code>, <code class="language-plaintext highlighter-rouge">1</code>, <code class="language-plaintext highlighter-rouge">2</code>, and <code class="language-plaintext highlighter-rouge">3</code>, such that they begin with <code class="language-plaintext highlighter-rouge">a</code>, <code class="language-plaintext highlighter-rouge">b</code>, or <code class="language-plaintext highlighter-rouge">c</code>.
+These strings constitute a language and we want to come up with an expression using the operators above to describe that language.</p>
+<div>
+  <p>
+    Let \(X = \{a, b, c\}\) and \(Y = \{1, 2, 3\}\). A language of single character strings, where the characters come from \(X\) and \(Y\), is this.
+  </p>
+  <p>
+    $$
+    Z = (X\cup Y)
+    $$
+  </p>
+  <p>If we want to extend \(Z\) to include multi-character strings, where the characters again come from \(X\) and \(Y\), we modify it like this.</p>
+  <p>
+    $$
+    Z = (X\cup Y)*
+    $$
+  </p>
+  <p>
+    Finally, to restrict \(Z\) to only those strings which begin with <code class="language-plaintext highlighter-rogue">a</code>,
+    <code class="language-plaintext highlighter-rogue">b</code>, and <code class="language-plaintext highlighter-rogue">c</code>, we do the following
+    modification
+  </p>
+  <p>
+    $$
+    Z = X.(X\cup Y)*
+    $$
+  </p>
+</div>
+
+<p>What we just saw was an example of constructing a regular expression. Regular expressions are a way to combine language operators to
+represent string patterns.</p>
+
+<div class="definition">
+  <p class="definition-title">Definition 5: Regular expressions</p>
+  <p>The regular expressions are defined as follows.</p>
+  <p class="definition-subtitle">Basis cases:</p>
+  <ol>
+    <li>To represent the empty string \(\epsilon\), the regular expression is \(\epsilon\).</li>
+    <li>To represent a single character, say \(a\), the regular expression is that character itself, \(a\).</li>
+  </ol>
+  <p class="definition-subtitle">Inductive cases:</p>
+  <ol>
+    <li>To represent the union of the two regular expressions, say \(X\) and \(Y\), the regular expression is \(X|Y\).</li>
+    <li>To represent the concatenation of the two regular expressions, say \(X\) and \(Y\), we write the expressions next to each other without any punctuation. So the resultant regular expression is \(XY\).</li>
+    <li>To represent the kleene star of a regular expression, say \(X\), we write \(X*\).</li>
+  </ol>
+</div>
+
+<p>As an example, if we want to represent the pattern discussed above, that is, the strings of <code class="language-plaintext highlighter-rouge">a</code>, <code class="language-plaintext highlighter-rouge">b</code>, <code class="language-plaintext highlighter-rouge">c</code>, <code class="language-plaintext highlighter-rouge">1</code>, <code class="language-plaintext highlighter-rouge">2</code>, and <code class="language-plaintext highlighter-rouge">3</code>, beginning with <code class="language-plaintext highlighter-rouge">a</code>, <code class="language-plaintext highlighter-rouge">b</code>, and <code class="language-plaintext highlighter-rouge">c</code>, the regular expression constructed as follows.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>x = a|b|c
+y = 1|2|3
+z = x((x|y)*)
+</code></pre></div></div>
+
+<p>You must have noticed that we changed the representation of regular expression operators. The definitions of individual operators used the
+mathematical notations but we modified them to make them easier to type.</p>
+
+<p>The fact that the definition of regular expressions is inductive is going to be the key to the implementation of regular expressions
+using a recursive algorithm.</p>
+
+<p>We can now define how regular expressions represent a language.</p>
+
+<div class="definition">
+  <p class="definition-title">Definition 6: Language defined by a regular expression</p>
+  The language define by a regular expression R, denoted by L(R), is the set of strings that are matched by that regular expression.
+</div>
+
+<p>With the definition of regular expressions, we have solved problem 3. We have a way to represent textual patterns.</p>
+
+<h2 id="4-finite-automata">4. Finite Automata</h2>
+<p>The concept of finite automata was first introduced by McCullough and Pitts<a href="#5">[5]</a> and later developed by Huffman <a href="#6">[6]</a>. Like regular expressions,
+finite automata describe languages.</p>
+
+<p>The notion of finite automata can be developed from the concept of directed graphs.</p>
+
+<h4 id="transition-tables-and-transition-graphs">Transition tables and Transition graphs</h4>
+<p>Suppose we have a directed graph where each vertex has a label and each edge is labelled by a character. Here is an example.</p>
+
+<p><img src="/static/img/compilers/first_automata.png" class="rounded mx-auto d-block" /></p>
+
+<p>We represent graphs using a data structure called <em>adjacency lists</em>. The adjacency list representation for the above edge-labelled directed graph is this.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>{
+  1: {a: 2},
+  2: {b: 3, c: 4},
+  3: {d: 5},
+  4: {d: 5}
+}
+</code></pre></div></div>
+<p>In compiler terminology, adjacency lists are called the <em>transition tables</em> and vertices are called the <em>states</em>. The graphs themselves are called the
+<em>transition graphs</em>.</p>
+
+<h4 id="transition-graphs-with-initial-and-final-states">Transition graphs with initial and final states</h4>
+<p>Let us designate one state as an initial state and one state as a final state. We represent an initial state in a transition graph by an arrow pointing
+from nowhere to that state. We represent a final state by using concentric circles for that state. In the above transition graph, if we designate <code class="language-plaintext highlighter-rouge">1</code> as an initial
+state and <code class="language-plaintext highlighter-rouge">5</code> as a final state, it would look like this.</p>
+
+<p><img src="/static/img/compilers/first_automata_with_initial_final.png" class="rounded mx-auto d-block" /></p>
+
+<p>Suppose we have a string, say <code class="language-plaintext highlighter-rouge">abd</code>, and we look at its characters one at a time. Also suppose that we traverse an edge of the above transition graph on each
+input character, starting from initial state <code class="language-plaintext highlighter-rouge">1</code>. The sequence of states on each character would then look like this.</p>
+
+\[1 \xrightarrow a 2 \xrightarrow b 3 \xrightarrow d 5\]
+
+<p>Let’s construct another example, this time with multiple final states.</p>
+
+<p><img src="/static/img/compilers/second_automata_multiple_final.png" class="rounded mx-auto d-block" /></p>
+
+<p>For string <code class="language-plaintext highlighter-rouge">abd</code>, the transitions would look like this.</p>
+<div>
+  $$
+    1 \xrightarrow a 2 \xrightarrow b 3 \xrightarrow d 4
+  $$
+</div>
+<p>For <code class="language-plaintext highlighter-rouge">abe</code>, the transitions end at <code class="language-plaintext highlighter-rouge">ab</code>, because after making the transitions</p>
+
+\[1 \xrightarrow a 2 \xrightarrow b 3\]
+
+<p>we end up at state 3 and there is no transition from state 3 on character <code class="language-plaintext highlighter-rouge">e</code>.</p>
+
+<p>For <code class="language-plaintext highlighter-rouge">abd</code>, the transitions lead to a final state <code class="language-plaintext highlighter-rouge">4</code> but for <code class="language-plaintext highlighter-rouge">abe</code>, the transitions led to a non-final state <code class="language-plaintext highlighter-rouge">3</code>. This distinction is important
+we will use it in what follows.</p>
+
+<h4 id="transition-graphs-with-empty-string-transitions">Transition graphs with empty string transitions</h4>
+<div>
+  <p>
+    We add one last concept to our transition graphs. We allow transitions on empty strings, that is, \(\epsilon\). Here is an example where
+    these \(\epsilon\)-transitions are represented by unlabelled edges.
+  </p>
+</div>
+
+<p><img src="/static/img/compilers/first_automata_epsilon.png" class="rounded mx-auto d-block" /></p>
+
+<div>
+  <p>
+    With \(\epsilon\)-transitions, we need to be more precise about how we describe the current state. In our earlier examples, we
+    implicitly represented the current state using just one state. Now, we can be in multiple states at the same time. Let's traverse the above graph
+    using a string to see how that can happen.
+  </p>
+</div>
+
+<div>
+  <p>
+    Suppose we have a string <code class="language-plaintext highlighter-rogue">ab</code>. We start with the initial state
+    <code class="language-plaintext highlighter-rouge">1</code>. But since we have two \(\epsilon\)-transitions out of state
+    <code class="language-plaintext highlighter-rouge">1</code>, one to <code class="language-plaintext highlighter-rouge">2</code> and one to
+    <code class="language-plaintext highlighter-rouge">5</code>, <em>we make these moves without reading any input character</em>. So our
+    current state is not <code class="language-plaintext highlighter-rouge">1</code> but <code class="language-plaintext highlighter-rouge">
+    {1, 2, 5}</code>.
+  </p>
+</div>
+
+<div>
+  <p>What we just saw was the computation of \(\epsilon\)-closure of a state. We formally define it as follows.</p>
+</div>
+
+<div class="definition">
+  <p class="definition-title">Definition 7: \(\epsilon\)-closure of a state</p>
+  <p>
+    An \(\epsilon\)-closure of a state in a transition graph is the set of states that can be reached from that state by following \(\epsilon\)-transitions
+    alone and that state itself.
+  </p>
+</div>
+
+<div>
+  <p>
+    In our above example, the \(\epsilon\)-closure(<code class="language-plaintext highlighter-rouge">1</code>) is <code class="language-plaintext highlighter-rouge">{1, 2, 5}</code>.
+  </p>
+</div>
+
+<p>Going back to processing <code class="language-plaintext highlighter-rouge">ab</code>, we are now in <code class="language-plaintext highlighter-rouge">{1, 2, 5}</code> and the next input character is <code class="language-plaintext highlighter-rouge">a</code>. There is no transition out of state <code class="language-plaintext highlighter-rouge">1</code> and state <code class="language-plaintext highlighter-rouge">5</code>
+with label <code class="language-plaintext highlighter-rouge">a</code> but there is one from state <code class="language-plaintext highlighter-rouge">2</code> to state <code class="language-plaintext highlighter-rouge">3</code> with that label. So the next state is <code class="language-plaintext highlighter-rouge">{3}</code>.</p>
+
+<p>Once we are in <code class="language-plaintext highlighter-rouge">{3}</code>, the next input character is <code class="language-plaintext highlighter-rouge">b</code> so we move to <code class="language-plaintext highlighter-rouge">{4}</code>. For <code class="language-plaintext highlighter-rouge">ab</code>, the transitions look like this.</p>
+
+<div>
+  $$
+    \{1,2,5\} \xrightarrow a \{3\} \xrightarrow b \{4\}
+  $$
+</div>
+
+<div>
+  <p>
+    We want to emphasise that \(\epsilon\)-closures are computed recursively. We need to follow <em>all</em> the \(\epsilon\)-transitions while
+    computing an \(\epsilon\)-closure. The basis case of the recursion is when a state has no \(\epsilon\)-transition out of it. In that case, the
+    \(\epsilon\)-closure of that state is that state itself.
+  </p>
+</div>
+
+<div>
+  <p>Here's a sketch of the algorithm to compute \(\epsilon\)-closure. Suppose we want to compute the \(\epsilon\)-closure of a state named `M`</p>
+</div>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>closure_set = {M}
+
+if M has no transition out of it with label ""
+  return closure_set
+else
+  for each state N such that edge M-N has label ""
+    closure_set = Union of closure_set and compute_closure_for(M)
+
+return closure_set
+</code></pre></div></div>
+
+<div>
+  <p>
+    Let's apply the above algorithm to compute the \(\epsilon\)-closure of <code class="language-plaintext highlighter-rouge">1</code> in the below
+    transition graph.
+  </p>
+</div>
+
+<p><img src="/static/img/compilers/second_automata_epsilon.png" class="rounded mx-auto d-block" /></p>
+
+<p>At first, we initialise
+\(closure(1)\)
+to itself.</p>
+
+\[closure(1) = \{1\}\]
+
+<p>Now there are two transitions out of <code class="language-plaintext highlighter-rouge">1</code> with label <code class="language-plaintext highlighter-rouge">""</code>, one to <code class="language-plaintext highlighter-rouge">2</code> and one to <code class="language-plaintext highlighter-rouge">5</code>. Therefore, we can write the following.</p>
+
+\[closure(1) = \{1\} \cup closure(2) \cup closure(5)\]
+
+<p>Let’s focus on the right hand side. There is nothing to be done for
+\(\{1\}\). But we need to compute closure(2) and closure(5).</p>
+
+<p>Let’s focus on closure(2). There is one transition out of 2 with label <code class="language-plaintext highlighter-rouge">""</code> to state 8. So,</p>
+
+\[closure(2) = \{2\} \cup closure(8).\]
+
+<p>Let’s compute closure(8). Since there is no transition out of <code class="language-plaintext highlighter-rouge">8</code> with label <code class="language-plaintext highlighter-rouge">""</code>, we have the following.</p>
+
+\[closure(8) = \{8\}\]
+
+<p>Thus,</p>
+
+\[\begin{align}
+  closure(2) &amp; = \{2\} \cup closure(8) \\
+  \implies closure(2) &amp; = \{2\} \cup \{8\}
+\end{align}\]
+
+<p>Let’s go back to closure(5). Since there is no transition out of state 5 with label <code class="language-plaintext highlighter-rouge">""</code>,</p>
+
+\[closure(5) = \{5\}.\]
+
+<p>Putting it all together, we can write the complete computation as follows.</p>
+
+\[\begin{align*}
+  closure(1) &amp;= \{1\} \cup closure(2) \cup closure(5) \\
+  \implies closure(1) &amp;= \{1\} \cup \{2\} \cup closure(8) \cup closure(5) \\
+  \implies closure(1) &amp;= \{1\} \cup \{2\} \cup \{8\} \cup closure(5) \\
+  \implies closure(1) &amp;= \{1\} \cup \{2\} \cup \{8\} \cup \{5\} \\
+  \implies closure(1) &amp;= \{1\} \cup \{2\} \cup \{5, 8\} \\
+  \implies closure(1) &amp;= \{1\} \cup \{2, 5, 8\} \\
+  \implies closure(1) &amp;= \{1, 2, 5, 8\} \\
+\end{align*}\]
+
+<h4 id="finite-automata">Finite automata</h4>
+<p>We now have all the ideas we need to define the concept of finite automata.</p>
+
+<div class="definition">
+  <p class="definition-title">Definition 8: Finite Automaton</p>
+    <p>A finite automaton is a set of five objects \(\{Q, \Sigma, q_0, F, T\thinspace \}\) defined as follows.</p>
+  <ol>
+    <li>A set of states \(Q\).</li>
+    <li>A set of allowable input characters \(\Sigma \).</li>
+    <li>A state designated as an initial state \(q_0\).</li>
+    <li>A set of states designated as final states \(F\).</li>
+    <li>A transition function \( \delta: Q \times \Sigma \rightarrow Q\).</li>
+  </ol>
+</div>
+
+<p>Let’s look at an earlier example but in the context of a finite automaton. Suppose our transition graph looks like this.</p>
+
+<p><img src="/static/img/compilers/second_automata_epsilon.png" class="rounded mx-auto d-block" /></p>
+
+<p>In this case:</p>
+
+<p>1.
+\(Q = \{1, 2, 3, 4, 5, 6, 7, 8\}\)</p>
+
+<p>2.
+\(q_0 = 1\)</p>
+
+<p>3.
+\(F = \{4, 7\}\)</p>
+
+<p>4.
+\(\Sigma = \{a, b, c, d\}\)</p>
+
+<p>5.
+A transition table representing the transition function 
+\(\delta.\)</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  1: {"": {2, 5}},
+  2: {a: {3}, "": {8}},
+  3: {b: {4}},
+  4: {d: {5}},
+  5: {c: {6}},
+  6: {d: {7}},
+  7: {},
+  8: {}
+</code></pre></div></div>
+
+<p>Like regular expressions, finite automata define languages.</p>
+
+<div class="definition">
+  <p class="definition-title">Definition 9: Language defined by a finite automaton</p>
+  The language defined by a finite automaton is the set of strings that take the automaton from the initial state to one of the final states.
+</div>
+
+<p>Let’s repeat the one of the above finite automata examples here.</p>
+
+<p><img src="/static/img/compilers/second_automata_epsilon.png" class="rounded mx-auto d-block" /></p>
+
+<p>The language defined by this automaton is <code class="language-plaintext highlighter-rouge">{ab, cd}</code>.</p>
+
+<div class="definition">
+  <p class="definition-title">Definition 10: Acceptance criterion of a finite automaton</p>
+  A finite automaton accepts a string if it takes the automaton from the initial state to one of the final states. It rejects all other strings.
+</div>
+
+<h2 id="5-implementing-regular-expressions-using-finite-automata">5. Implementing regular expressions using finite automata.</h2>
+<p>What we have seen thus far is both finite automata and regular expressions define languages. More importantly, <em>every regular expression
+has an equivalent finite automaton</em>. We won’t give a proof of the equivalence of regular expressions and finite automata in this article. They are
+standard textbook material<a href="#1">[1]</a><a href="#2">[2]</a>.</p>
+
+<p>What we will do is translate our regular expressions into finite automata; these finite automata implement their equivalent regular expressions. The
+algorithm discussed here is due to Thompson<a href="#7">[7]</a>.</p>
+
+<p>In what follows, we will represent an arbitrary finite automata like this.</p>
+
+<p><img src="/static/img/compilers/arbitrary_automata.png" class="rounded mx-auto d-block" /></p>
+
+<p>Remember, we defined regular expressions inductively. We define the translation from regular expression to finite automaton for each case. We had two
+basis cases and three inductive cases.</p>
+
+<h4>Basis case 1: Finite automata for regular expression \(\epsilon\)</h4>
+<div>
+  <p>For regular expression \(\epsilon\), the equivalent finite automata is this.</p>
+  <img src="/static/img/compilers/base_epsilon_automata.png" class="rounded mx-auto d-block" />
+</div>
+
+<h4 id="basis-case-2-finite-automata-for-single-character-regular-expression">Basis case 2: Finite automata for single character regular expression</h4>
+<p>For a single character regular expression, say <code class="language-plaintext highlighter-rouge">x</code>, the equivalent finite automata is this.
+<img src="/static/img/compilers/base_single_character_automata.png" class="rounded mx-auto d-block" /></p>
+
+<h4 id="inductive-case-1-union-of-regular-expressions">Inductive case 1: Union of regular expressions</h4>
+<p>If we have two regular expressions <code class="language-plaintext highlighter-rouge">r1</code> and <code class="language-plaintext highlighter-rouge">r2</code>, then their union, <code class="language-plaintext highlighter-rouge">r1|r2</code>, has the following equivalent finite automaton.
+<img src="/static/img/compilers/inductive_union_automata.png" class="rounded mx-auto d-block" />
+That is, we do the following things:</p>
+<div>
+  <ol>
+    <li>We create a new start state.</li>
+    <li>We add \(\epsilon\)-transitions from the new start state to each operand automaton's start state.</li>
+    <li>We create a new final state.</li>
+    <li>We add \(\epsilon\)-transitions from each operand automaton's final state to the new final state.</li>
+  </ol>
+</div>
+
+<h4 id="inductive-case-2-concatenation-of-regular-expressions">Inductive case 2: Concatenation of regular expressions</h4>
+<p>If we have two regular expressions <code class="language-plaintext highlighter-rouge">r1</code> and <code class="language-plaintext highlighter-rouge">r2</code>, then their concatenation, <code class="language-plaintext highlighter-rouge">r1r2</code>, has the following equivalent finite automata.
+<img src="/static/img/compilers/inductive_concatenation_automata.png" class="rounded mx-auto d-block" /></p>
+
+<div>
+  <p>That is, we add an \(\epsilon\)-transition from the first operand automaton's final state to the second operand automaton's initial state.</p>
+</div>
+
+<h4 id="inductive-case-3-kleene-star-of-regular-expressions">Inductive case 3: Kleene star of regular expressions</h4>
+<p>If we have a regular expression <code class="language-plaintext highlighter-rouge">r1</code>, then its kleene star, <code class="language-plaintext highlighter-rouge">r1*</code>, has the following equivalent finite automata.
+<img src="/static/img/compilers/inductive_kleene_star_automata.png" class="rounded mx-auto d-block" />
+That is, we do the following things:</p>
+<ol>
+  <li>We create a new start state and add an \(\epsilon\)-transition from that new start state to the operand automaton's start state.</li>
+  <li>We create a new final state and add an \(\epsilon\)-transition from the operand automaton's final state to the new final state.</li>
+  <li>We add an \(\epsilon\)-transition from the operand's final state to the operand's start state.</li>
+  <li>We add an \(\epsilon\)-transition from the new start state to the new final state. </li>
+</ol>
+
+<h4 id="algorithm-to-implement-regular-expressions">Algorithm to implement regular expressions</h4>
+<p>What we have discussed so far is an inductive way to convert regular expressions into finite automata. We can readily translate these cases
+into a recursive algorithm. The outline of the algorithm looks like this.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>compile_regex_to_automaton(r)
+  if r is an empty string, construct the empty string finite automaton and return it.
+
+  if r is a single character string, construct the single character finite automaton and return it.
+
+  else
+    first_operand = get_first_operand(r)
+    first_operand_automaton = compile_regex_to_automaton(first_operand)
+  
+    operator = get_operator(r)
+  
+    if operator is a kleene star
+      // There is no second operand
+      combined_automaton = apply_kleene_star(first_operand)
+      return combined_automaton
+
+    second_operand = get_second_operand(r)
+    second_operand_automaton = compile_regex_to_automaton(second_operand)
+    
+    if operator is union
+      combined_automaton = combine_using_union(first_operand_automaton, second_operand_automaton)
+    else
+      combined_automaton = combine_using_concatenation(first_operand_automaton, second_operand_automaton)
+    
+    return combined_automaton
+</code></pre></div></div>
+
+<p>Let’s run this algorithm using an example. Suppose our regular expression is <code class="language-plaintext highlighter-rouge">(a|b)(c|d)*</code>. It describes the language <code class="language-plaintext highlighter-rouge">{ac, ad, bc, bd}</code>.
+The recursion proceeds as follows.</p>
+
+<ol>
+  <li>Is <code class="language-plaintext highlighter-rouge">(a|b)(c|d)</code> an empty string? No.</li>
+  <li>Is <code class="language-plaintext highlighter-rouge">(a|b)(c|d)</code> a single character string? No.</li>
+  <li>Compute the first operand of <code class="language-plaintext highlighter-rouge">(a|b)(c|d)</code>. We do it by matching parentheses and its <code class="language-plaintext highlighter-rouge">(a|b)</code>. We trim the outermost parentheses.
+    <ol>
+      <li>Is <code class="language-plaintext highlighter-rouge">a|b</code> an empty string? No.</li>
+      <li>Is <code class="language-plaintext highlighter-rouge">a|b</code> a single character string? No.</li>
+      <li>Compute the first operand of <code class="language-plaintext highlighter-rouge">a|b</code>. There are no parentheses so the first character, <code class="language-plaintext highlighter-rouge">a</code>, is the operand.
+        <ol>
+          <li>Is <code class="language-plaintext highlighter-rouge">a</code> an empty string? No.</li>
+          <li>Is <code class="language-plaintext highlighter-rouge">a</code> a single character string? Yes, so we construct the single character automaton and return it.</li>
+        </ol>
+      </li>
+      <li>Compute the operator for <code class="language-plaintext highlighter-rouge">a|b</code>. Its union <code class="language-plaintext highlighter-rouge">|</code>.</li>
+      <li>Is the operator a kleene star? No.</li>
+      <li>Compute the second operand of <code class="language-plaintext highlighter-rouge">a|b</code>. Its <code class="language-plaintext highlighter-rouge">b</code>.
+        <ol>
+          <li>Is <code class="language-plaintext highlighter-rouge">b</code> is an empty string? No.</li>
+          <li>Is <code class="language-plaintext highlighter-rouge">b</code> a single character string? Yes, so we construct the single character automaton and return it.</li>
+        </ol>
+      </li>
+      <li>Combine the automata for <code class="language-plaintext highlighter-rouge">a</code> and <code class="language-plaintext highlighter-rouge">b</code> using the union <code class="language-plaintext highlighter-rouge">|</code>.</li>
+    </ol>
+  </li>
+  <li>Compute the operator for <code class="language-plaintext highlighter-rouge">(a|b)(c|d)</code>. Its concatenation.</li>
+  <li>Is the operator a kleene star? No.</li>
+  <li>Compute the second operand for <code class="language-plaintext highlighter-rouge">(a|b)(c|d)</code>. We just remove the first operand and the operator; the remaining substring is the second operand <code class="language-plaintext highlighter-rouge">(c|d)</code>.
+We trim the parentheses.
+    <ol>
+      <li>Is <code class="language-plaintext highlighter-rouge">c|d</code> an empty string? No.</li>
+      <li>Is <code class="language-plaintext highlighter-rouge">c|d</code> a single character string? No.</li>
+      <li>Compute the first operand of <code class="language-plaintext highlighter-rouge">c|d</code>. There are no parentheses so the first character, <code class="language-plaintext highlighter-rouge">c</code>, is the operand.
+        <ol>
+          <li>Is <code class="language-plaintext highlighter-rouge">c</code> an empty string? No.</li>
+          <li>Is <code class="language-plaintext highlighter-rouge">c</code> a single character string? Yes, so we construct the single character automaton and return it.</li>
+        </ol>
+      </li>
+      <li>Compute the operator for <code class="language-plaintext highlighter-rouge">c|d</code>. Its union <code class="language-plaintext highlighter-rouge">|</code>.</li>
+      <li>Is the operator a kleene star? No.</li>
+      <li>Compute the second operand of <code class="language-plaintext highlighter-rouge">c|d</code>. Its <code class="language-plaintext highlighter-rouge">d</code>.
+        <ol>
+          <li>Is <code class="language-plaintext highlighter-rouge">d</code> is an empty string? No.</li>
+          <li>Is <code class="language-plaintext highlighter-rouge">d</code> a single character string? Yes, so we construct the single character automaton and return it.</li>
+        </ol>
+      </li>
+      <li>Combine the automata for <code class="language-plaintext highlighter-rouge">c</code> and <code class="language-plaintext highlighter-rouge">d</code> using the union <code class="language-plaintext highlighter-rouge">|</code>.</li>
+    </ol>
+  </li>
+  <li>Combine the automata for <code class="language-plaintext highlighter-rouge">(a|b)</code> and <code class="language-plaintext highlighter-rouge">(c|d)</code> using concatenation.</li>
+</ol>
+
+<p>With this algorithm, we have solved the problem 2 posed above: given a string and a string pattern, determine whether the string matches that pattern.
+We proceed like this.</p>
+
+<ol>
+  <li>Compute the automaton for the pattern.</li>
+  <li>Traverse the automaton using the string to see whether it accepts or rejects the string.</li>
+</ol>
+
+<p>We are in a position now to attack our capstone problem. The problem 1 was to classify the substrings of a string given some string patterns.
+Let’s see how can we do it and what is the role of the solution in programming language implementation.</p>
+
+<h2 id="6-tokenization">6. Tokenization</h2>
+<p>Suppose we have a string and we want to classify the substrings of that string using regular expressions. For example, if we have a string <code class="language-plaintext highlighter-rouge">12+132</code>
+and we are given regular expressions for positive integers and <code class="language-plaintext highlighter-rouge">+</code>, we will divide the string into <code class="language-plaintext highlighter-rouge">12</code>, <code class="language-plaintext highlighter-rouge">+</code>, and <code class="language-plaintext highlighter-rouge">132</code>.</p>
+
+<p>This process of dividing the strings using regular expressions is called <em>Tokenization</em>.</p>
+
+<p>The divided substrings are not represented as such but are used to construct objects called <em>Tokens</em>. Tokens represent the divided substrings
+and contain two pieces of information.</p>
+
+<ol>
+  <li>The regular expression used to match that substring. It is called the <em>token type</em>.</li>
+  <li>The substring matched for this token. It is called the <em>lexeme</em>.</li>
+</ol>
+
+<p>We will represent a token like <code class="language-plaintext highlighter-rouge">&lt;Tokentype, Lexeme&gt;</code>. For example, the tokens for <code class="language-plaintext highlighter-rouge">12+123</code> are going to be
+<code class="language-plaintext highlighter-rouge">&lt;positive_integer, 12&gt;</code>, <code class="language-plaintext highlighter-rouge">&lt;+, +&gt;</code>, and <code class="language-plaintext highlighter-rouge">&lt;positive_integer, 123&gt;</code>.</p>
+
+<p>We ignore all whitespace while tokenizing a string.</p>
+
+<p>The way we do tokenization is as follows.</p>
+<ol>
+  <li>Construct the regular expressions on which we want to tokenize strings.</li>
+  <li>Starting from the left, bite off the substrings of a given string that match those regular expressions.</li>
+</ol>
+
+<p>For example, for our above example, <code class="language-plaintext highlighter-rouge">12 + 123</code>, and using regular expressions representing positive integers and operator <code class="language-plaintext highlighter-rouge">+</code>, we proceed as follows.</p>
+<ol>
+  <li>Starting from the left of <code class="language-plaintext highlighter-rouge">12 + 123</code>, <code class="language-plaintext highlighter-rouge">12</code> will match the regular expression for positive integers. We will have <code class="language-plaintext highlighter-rouge">&lt;positive_integer, 123&gt;</code> as the first token and the
+remaining substring left is <code class="language-plaintext highlighter-rouge">+ 123</code>.</li>
+  <li>Starting from the left of <code class="language-plaintext highlighter-rouge">+ 123</code>, <code class="language-plaintext highlighter-rouge">+</code> will match the regular expression for <code class="language-plaintext highlighter-rouge">+</code>. We will have <code class="language-plaintext highlighter-rouge">&lt;+, +&gt;</code> as our second token and the remaining substring
+left is <code class="language-plaintext highlighter-rouge">123</code>.</li>
+  <li>Our regular expression for positive integers will match <code class="language-plaintext highlighter-rouge">123</code>, so our final token is going to be <code class="language-plaintext highlighter-rouge">&lt;positive_integer, 123&gt;</code>.</li>
+</ol>
+
+<p>Therefore, the output of tokenizing <code class="language-plaintext highlighter-rouge">12 + 123</code> is <code class="language-plaintext highlighter-rouge">&lt;positive_integer, 12&gt;, &lt;+, +&gt;, and &lt;positive_integer, 123&gt;</code>.</p>
+
+<p>Here’s one problem with the above approach. Suppose we have the following regular expressions.</p>
+<ol>
+  <li>A regular expression for numbers: <code class="language-plaintext highlighter-rouge">(0|1|2|3|4|5|6|7|8|9)(0|1|2|3|4|5|6|7|8|9)*</code>.</li>
+  <li>A regular expression for single equals: <code class="language-plaintext highlighter-rouge">=</code>.</li>
+  <li>A regular expression for double equals: <code class="language-plaintext highlighter-rouge">==</code>.</li>
+</ol>
+
+<p>If the string we want to tokenise is <code class="language-plaintext highlighter-rouge">123==123</code>, which of the following tokenization is correct.</p>
+<ol>
+  <li><code class="language-plaintext highlighter-rouge">&lt;number, 123&gt;, &lt;=, =&gt;,&lt;=, =&gt;, &lt;number, 123&gt;</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">&lt;number, 123&gt;, &lt;==, ==&gt;, &lt;number, 123&gt;</code>.</li>
+</ol>
+
+<p>The answer is 2. At any point of the string, we choose that substring for the next token which is going to have the maximum length. This policy is
+called the <em>Maximal Munch</em> policy. In our earlier example, after <code class="language-plaintext highlighter-rouge">123</code>, we match <code class="language-plaintext highlighter-rouge">=</code> with regular expression <code class="language-plaintext highlighter-rouge">=</code> and <code class="language-plaintext highlighter-rouge">==</code> with regular expression <code class="language-plaintext highlighter-rouge">==</code>. Using
+maximal munch policy, the next token is going to be <code class="language-plaintext highlighter-rouge">&lt;==, ==&gt;</code>.</p>
+
+<p>We can now sketch an algorithm to get the next token of a string given a string to tokenize and a string position from which we start the tokenization.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>get_next_token(string, start_position)
+  list_of_regexes = &lt;regexes we want to use to tokenize strings&gt;.
+  
+  next_lexeme = ""
+  candidate_lexeme = ""
+  for regex in list_of_regexes
+    candidate_lexeme = regex.match(string, start_position)
+    if candidate_lexeme is longer than next_lexeme
+      next_lexeme = candidate_lexeme
+  
+  return next_lexeme
+</code></pre></div></div>
+
+<p>With this algorithm, we have solved the problem 1 stated above.</p>
+
+<h2 id="references">References</h2>
+<p id="1">
+  [1] Sipser, Michael. Introduction to the Theory of Computation. 3rd edition. Cengage Learning. 2012
+      <a href="#" onclick="window.history.back()">&uarr;</a>
+</p>
+<p id="2">
+  [2] Hopcroft, John E., Motwani, Rajeev, &amp; Ullman, Jeffery D. Introduction to Automata Theory, Languages, and Computation. 3rd Edition. Pearson. 2007
+      <a href="#" onclick="window.history.back()">&uarr;</a>
+</p>
+<p id="3">
+  [3] Aho, Alfred V. Lam, Monica S., Sethi, Ravi, &amp; Ullman, Jeffery D. Compilers Principles, Techiniques and Tools, 2nd Edition. Pearson. 2007
+      <a href="#" onclick="window.history.back()">&uarr;</a>
+</p>
+<p id="4">
+  [4] Kleene, S. C. "Representation of events in nerve nets" in <em>Automata Studies</em>, edited by Shannon, C. &amp; McCarthy, J, 3-40.
+      Princeton University Press, 1956.
+      <a href="#" onclick="window.history.back()">&uarr;</a>
+</p>
+<p id="5">
+  [5] McCullough, W.S and Pitts, W. "A logical calculus of the ideas immanent in nervous activity." Bull. Math. Biophysics 5, pp 115-133, 1943.
+      Princeton University Press, 1956.
+      <a href="#" onclick="window.history.back()">&uarr;</a>
+</p>
+<p id="6">
+  [6] Huffman, D.A., "The synthesis of sequential machines," J. Franklin Inst. 257 (1954), pp. 3-4, 161, 190, 275-303.
+      <a href="#" onclick="window.history.back()">&uarr;</a>
+</p>
+<p id="7">
+  [7] Thompson, K., "Regular expression search algorithm," Comm. ACM 11:6 (1968), pp. 419-422.
+      <a href="#" onclick="window.history.back()">&uarr;</a>
+</p>
+
+    </div>
+  </div>
+</div>
+
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+    <script type="text/javascript">
+    $(document).ready(function() {
+    $("body").tooltip({ selector: '[data-toggle=tooltip]' });
+    });
+    </script>
+  </body>
+</html>

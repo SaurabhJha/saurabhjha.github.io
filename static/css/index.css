@@ -13,3 +13,21 @@ body {
     color: black;
     border-radius: 3px;
 }
+
+.definition {
+    border: 1px solid black;
+    padding: 5px 10px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.definition .definition-title {
+    font-weight: 900;
+    font-size: 18px;
+    text-decoration: underline;
+}
+
+.definition .definition-subtitle {
+    font-size: 16px;
+    text-decoration: underline;
+}
