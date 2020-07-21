@@ -31,3 +31,36 @@ body {
     font-size: 16px;
     text-decoration: underline;
 }
+
+.grammar-box {
+    width: 50%;
+    border: 1px solid black;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    padding: 10px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.grammar-box .grammar-box-title {
+    font-size: 16px;
+    text-decoration: underline;
+}
+
+.stack-input-container {
+    border: 1px solid black;
+}
+
+.stack-input-container .header {
+    border-bottom: 1px solid black;
+    text-decoration: underline;
+    font-weight: 600;
+}
+  
+.stack-input-container .header .left {
+    border-right: 1px solid black;
+}
+
+.stack-input-container .row .left {
+    border-right: 1px solid black;
+}

@@ -26,8 +26,14 @@
     <script id="MathJax-script" async
             src="https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js">
     </script>
-
-     <title>Implementing regular expressions</title>
+    <script>
+      window.MathJax = {
+          tex: {
+              tags: 'ams'
+          }
+      };
+    </script>
+    <title>Implementing regular expressions</title>
   </head>
   <body>
     <div class="container">
@@ -297,7 +303,7 @@ input character, starting from initial state <code class="language-plaintext hig
 
 <p>we end up at state 3 and there is no transition from state 3 on character <code class="language-plaintext highlighter-rouge">e</code>.</p>
 
-<p>For <code class="language-plaintext highlighter-rouge">abd</code>, the transitions lead to a final state <code class="language-plaintext highlighter-rouge">4</code> but for <code class="language-plaintext highlighter-rouge">abe</code>, the transitions led to a non-final state <code class="language-plaintext highlighter-rouge">3</code>. This distinction is important
+<p>For <code class="language-plaintext highlighter-rouge">abd</code>, the transitions lead to a final state <code class="language-plaintext highlighter-rouge">4</code> but for <code class="language-plaintext highlighter-rouge">abe</code>, the transitions led to a non-final state <code class="language-plaintext highlighter-rouge">3</code>. This distinction is important and
 we will use it in what follows.</p>
 
 <h4 id="transition-graphs-with-empty-string-transitions">Transition graphs with empty string transitions</h4>
@@ -354,7 +360,7 @@ with label <code class="language-plaintext highlighter-rouge">a</code> but there
 
 <div>
   $$
-    \{1,2,5\} \xrightarrow a \{3\} \xrightarrow b \{4\}
+    \{1,2,5,8\} \xrightarrow a \{3\} \xrightarrow b \{4\}
   $$
 </div>
 
@@ -401,9 +407,7 @@ to itself.</p>
 \[closure(1) = \{1\} \cup closure(2) \cup closure(5)\]
 
 <p>Let’s focus on the right hand side. There is nothing to be done for
-\(\{1\}\). But we need to compute closure(2) and closure(5).</p>
-
-<p>Let’s focus on closure(2). There is one transition out of 2 with label <code class="language-plaintext highlighter-rouge">""</code> to state 8. So,</p>
+\(\{1\}\). But we need to compute closure(2) and closure(5). Let’s focus on closure(2). There is one transition out of 2 with label <code class="language-plaintext highlighter-rouge">""</code> to state 8. So,</p>
 
 \[closure(2) = \{2\} \cup closure(8).\]
 
@@ -413,10 +417,10 @@ to itself.</p>
 
 <p>Thus,</p>
 
-\[\begin{align}
+\[\begin{align*}
   closure(2) &amp; = \{2\} \cup closure(8) \\
   \implies closure(2) &amp; = \{2\} \cup \{8\}
-\end{align}\]
+\end{align*}\]
 
 <p>Let’s go back to closure(5). Since there is no transition out of state 5 with label <code class="language-plaintext highlighter-rouge">""</code>,</p>
 
@@ -439,7 +443,7 @@ to itself.</p>
 
 <div class="definition">
   <p class="definition-title">Definition 8: Finite Automaton</p>
-    <p>A finite automaton is a set of five objects \(\{Q, \Sigma, q_0, F, T\thinspace \}\) defined as follows.</p>
+    <p>A finite automaton is a set of five objects \(\{Q, \Sigma, q_0, F, \delta\thinspace \}\) defined as follows.</p>
   <ol>
     <li>A set of states \(Q\).</li>
     <li>A set of allowable input characters \(\Sigma \).</li>
@@ -470,7 +474,8 @@ to itself.</p>
 <p>5.
 A transition table representing the transition function 
 \(\delta.\)</p>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>  1: {"": {2, 5}},
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>{
+  1: {"": {2, 5}},
   2: {a: {3}, "": {8}},
   3: {b: {4}},
   4: {d: {5}},
@@ -478,6 +483,7 @@ A transition table representing the transition function
   6: {d: {7}},
   7: {},
   8: {}
+}
 </code></pre></div></div>
 
 <p>Like regular expressions, finite automata define languages.</p>
@@ -510,8 +516,7 @@ algorithm discussed here is due to Thompson<a href="#7">[7]</a>.</p>
 
 <p><img src="/static/img/compilers/arbitrary_automata.png" class="rounded mx-auto d-block" /></p>
 
-<p>Remember, we defined regular expressions inductively. We define the translation from regular expression to finite automaton for each case. We had two
-basis cases and three inductive cases.</p>
+<p>Remember, we defined regular expressions inductively. We define the translation from regular expression to finite automaton for each basis and inductive case.</p>
 
 <h4>Basis case 1: Finite automata for regular expression \(\epsilon\)</h4>
 <div>
@@ -558,31 +563,34 @@ That is, we do the following things:</p>
 <h4 id="algorithm-to-implement-regular-expressions">Algorithm to implement regular expressions</h4>
 <p>What we have discussed so far is an inductive way to convert regular expressions into finite automata. We can readily translate these cases
 into a recursive algorithm. The outline of the algorithm looks like this.</p>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>compile_regex_to_automaton(r)
-  if r is an empty string, construct the empty string finite automaton and return it.
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">compile_regex_to_automaton</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+  <span class="k">if</span> <span class="p">(</span><span class="n">r</span> <span class="n">is</span> <span class="n">an</span> <span class="n">empty</span> <span class="n">string</span><span class="p">)</span>
+    <span class="n">construct</span> <span class="n">the</span> <span class="n">empty</span> <span class="n">string</span> <span class="n">finite</span> <span class="n">automaton</span> <span class="n">and</span> <span class="k">return</span> <span class="n">it</span><span class="p">;</span>
 
-  if r is a single character string, construct the single character finite automaton and return it.
+  <span class="k">if</span> <span class="p">(</span><span class="n">r</span> <span class="n">is</span> <span class="n">a</span> <span class="n">single</span> <span class="n">character</span> <span class="n">string</span><span class="p">)</span>
+    <span class="n">construct</span> <span class="n">the</span> <span class="n">single</span> <span class="n">character</span> <span class="n">finite</span> <span class="n">automaton</span> <span class="n">and</span> <span class="k">return</span> <span class="n">it</span><span class="p">;</span>
 
-  else
-    first_operand = get_first_operand(r)
-    first_operand_automaton = compile_regex_to_automaton(first_operand)
+  <span class="k">else</span> <span class="p">{</span>
+    <span class="n">first_operand</span> <span class="o">=</span> <span class="n">get_first_operand</span><span class="p">(</span><span class="n">r</span><span class="p">);</span>
+    <span class="n">first_operand_automaton</span> <span class="o">=</span> <span class="n">compile_regex_to_automaton</span><span class="p">(</span><span class="n">first_operand</span><span class="p">);</span> <span class="c1">// Recursively compile first operand.</span>
   
-    operator = get_operator(r)
+    <span class="k">operator</span> <span class="o">=</span> <span class="n">get_operator</span><span class="p">(</span><span class="n">r</span><span class="p">);</span>
   
-    if operator is a kleene star
-      // There is no second operand
-      combined_automaton = apply_kleene_star(first_operand)
-      return combined_automaton
+    <span class="k">if</span> <span class="k">operator</span> <span class="n">is</span> <span class="n">a</span> <span class="n">kleene</span> <span class="n">star</span>
+      <span class="c1">// There is no second operand for kleene star.</span>
+      <span class="n">combined_automaton</span> <span class="o">=</span> <span class="n">apply_kleene_star</span><span class="p">(</span><span class="n">first_operand</span><span class="p">);</span>
+      <span class="k">return</span> <span class="n">combined_automaton</span><span class="p">;</span>
 
-    second_operand = get_second_operand(r)
-    second_operand_automaton = compile_regex_to_automaton(second_operand)
+    <span class="n">second_operand</span> <span class="o">=</span> <span class="n">get_second_operand</span><span class="p">(</span><span class="n">r</span><span class="p">);</span> <span class="c1">// Recursively compile second operand.</span>
+    <span class="n">second_operand_automaton</span> <span class="o">=</span> <span class="n">compile_regex_to_automaton</span><span class="p">(</span><span class="n">second_operand</span><span class="p">);</span>
     
-    if operator is union
-      combined_automaton = combine_using_union(first_operand_automaton, second_operand_automaton)
-    else
-      combined_automaton = combine_using_concatenation(first_operand_automaton, second_operand_automaton)
+    <span class="k">if</span> <span class="k">operator</span> <span class="n">is</span> <span class="k">union</span>
+      <span class="n">combined_automaton</span> <span class="o">=</span> <span class="n">combine_using_union</span><span class="p">(</span><span class="n">first_operand_automaton</span><span class="p">,</span> <span class="n">second_operand_automaton</span><span class="p">);</span>
+    <span class="k">else</span>
+      <span class="n">combined_automaton</span> <span class="o">=</span> <span class="n">combine_using_concatenation</span><span class="p">(</span><span class="n">first_operand_automaton</span><span class="p">,</span> <span class="n">second_operand_automaton</span><span class="p">);</span>
     
-    return combined_automaton
+    <span class="k">return</span> <span class="n">combined_automaton</span><span class="p">;</span>
+  <span class="p">}</span>
 </code></pre></div></div>
 
 <p>Let’s run this algorithm using an example. Suppose our regular expression is <code class="language-plaintext highlighter-rouge">(a|b)(c|d)*</code>. It describes the language <code class="language-plaintext highlighter-rouge">{ac, ad, bc, bd}</code>.
@@ -591,17 +599,17 @@ The recursion proceeds as follows.</p>
 <ol>
   <li>Is <code class="language-plaintext highlighter-rouge">(a|b)(c|d)</code> an empty string? No.</li>
   <li>Is <code class="language-plaintext highlighter-rouge">(a|b)(c|d)</code> a single character string? No.</li>
-  <li>Compute the first operand of <code class="language-plaintext highlighter-rouge">(a|b)(c|d)</code>. We do it by matching parentheses and its <code class="language-plaintext highlighter-rouge">(a|b)</code>. We trim the outermost parentheses.
+  <li>Compute the first operand of <code class="language-plaintext highlighter-rouge">(a|b)(c|d)</code>. Its <code class="language-plaintext highlighter-rouge">(a|b)</code>. We trim the outermost parentheses.
     <ol>
       <li>Is <code class="language-plaintext highlighter-rouge">a|b</code> an empty string? No.</li>
       <li>Is <code class="language-plaintext highlighter-rouge">a|b</code> a single character string? No.</li>
-      <li>Compute the first operand of <code class="language-plaintext highlighter-rouge">a|b</code>. There are no parentheses so the first character, <code class="language-plaintext highlighter-rouge">a</code>, is the operand.
+      <li>Compute the first operand of <code class="language-plaintext highlighter-rouge">a|b</code>, which is <code class="language-plaintext highlighter-rouge">a</code>.
         <ol>
           <li>Is <code class="language-plaintext highlighter-rouge">a</code> an empty string? No.</li>
           <li>Is <code class="language-plaintext highlighter-rouge">a</code> a single character string? Yes, so we construct the single character automaton and return it.</li>
         </ol>
       </li>
-      <li>Compute the operator for <code class="language-plaintext highlighter-rouge">a|b</code>. Its union <code class="language-plaintext highlighter-rouge">|</code>.</li>
+      <li>Compute the operator for <code class="language-plaintext highlighter-rouge">a|b</code>. Its the union operator <code class="language-plaintext highlighter-rouge">|</code>.</li>
       <li>Is the operator a kleene star? No.</li>
       <li>Compute the second operand of <code class="language-plaintext highlighter-rouge">a|b</code>. Its <code class="language-plaintext highlighter-rouge">b</code>.
         <ol>
@@ -614,12 +622,11 @@ The recursion proceeds as follows.</p>
   </li>
   <li>Compute the operator for <code class="language-plaintext highlighter-rouge">(a|b)(c|d)</code>. Its concatenation.</li>
   <li>Is the operator a kleene star? No.</li>
-  <li>Compute the second operand for <code class="language-plaintext highlighter-rouge">(a|b)(c|d)</code>. We just remove the first operand and the operator; the remaining substring is the second operand <code class="language-plaintext highlighter-rouge">(c|d)</code>.
-We trim the parentheses.
+  <li>Compute the second operand for <code class="language-plaintext highlighter-rouge">(a|b)(c|d)</code>. Its <code class="language-plaintext highlighter-rouge">(c|d)</code>. We trim the parentheses.
     <ol>
       <li>Is <code class="language-plaintext highlighter-rouge">c|d</code> an empty string? No.</li>
       <li>Is <code class="language-plaintext highlighter-rouge">c|d</code> a single character string? No.</li>
-      <li>Compute the first operand of <code class="language-plaintext highlighter-rouge">c|d</code>. There are no parentheses so the first character, <code class="language-plaintext highlighter-rouge">c</code>, is the operand.
+      <li>Compute the first operand of <code class="language-plaintext highlighter-rouge">c|d</code>. Its <code class="language-plaintext highlighter-rouge">c</code>.
         <ol>
           <li>Is <code class="language-plaintext highlighter-rouge">c</code> an empty string? No.</li>
           <li>Is <code class="language-plaintext highlighter-rouge">c</code> a single character string? Yes, so we construct the single character automaton and return it.</li>
@@ -643,7 +650,7 @@ We trim the parentheses.
 We proceed like this.</p>
 
 <ol>
-  <li>Compute the automaton for the pattern.</li>
+  <li>Compute the automaton for the regular expression describing that pattern.</li>
   <li>Traverse the automaton using the string to see whether it accepts or rejects the string.</li>
 </ol>
 
@@ -667,11 +674,9 @@ and contain two pieces of information.</p>
 <p>We will represent a token like <code class="language-plaintext highlighter-rouge">&lt;Tokentype, Lexeme&gt;</code>. For example, the tokens for <code class="language-plaintext highlighter-rouge">12+123</code> are going to be
 <code class="language-plaintext highlighter-rouge">&lt;positive_integer, 12&gt;</code>, <code class="language-plaintext highlighter-rouge">&lt;+, +&gt;</code>, and <code class="language-plaintext highlighter-rouge">&lt;positive_integer, 123&gt;</code>.</p>
 
-<p>We ignore all whitespace while tokenizing a string.</p>
-
-<p>The way we do tokenization is as follows.</p>
+<p>Tokenization is done as follows.</p>
 <ol>
-  <li>Construct the regular expressions on which we want to tokenize strings.</li>
+  <li>Construct the regular expressions on which we want to tokenize the strings.</li>
   <li>Starting from the left, bite off the substrings of a given string that match those regular expressions.</li>
 </ol>
 
@@ -686,7 +691,7 @@ left is <code class="language-plaintext highlighter-rouge">123</code>.</li>
 
 <p>Therefore, the output of tokenizing <code class="language-plaintext highlighter-rouge">12 + 123</code> is <code class="language-plaintext highlighter-rouge">&lt;positive_integer, 12&gt;, &lt;+, +&gt;, and &lt;positive_integer, 123&gt;</code>.</p>
 
-<p>Here’s one problem with the above approach. Suppose we have the following regular expressions.</p>
+<p>There is a problem however with this approach. Suppose we have the following regular expressions.</p>
 <ol>
   <li>A regular expression for numbers: <code class="language-plaintext highlighter-rouge">(0|1|2|3|4|5|6|7|8|9)(0|1|2|3|4|5|6|7|8|9)*</code>.</li>
   <li>A regular expression for single equals: <code class="language-plaintext highlighter-rouge">=</code>.</li>
@@ -705,20 +710,21 @@ maximal munch policy, the next token is going to be <code class="language-plaint
 
 <p>We can now sketch an algorithm to get the next token of a string given a string to tokenize and a string position from which we start the tokenization.</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>get_next_token(string, start_position)
-  list_of_regexes = &lt;regexes we want to use to tokenize strings&gt;.
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">get_next_token</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">start_position</span><span class="p">)</span>
+  <span class="n">list_of_regexes</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">regexes</span> <span class="n">we</span> <span class="n">want</span> <span class="n">to</span> <span class="n">use</span> <span class="n">to</span> <span class="n">tokenize</span> <span class="n">strings</span><span class="o">&gt;</span><span class="p">;</span>
   
-  next_lexeme = ""
-  candidate_lexeme = ""
-  for regex in list_of_regexes
-    candidate_lexeme = regex.match(string, start_position)
-    if candidate_lexeme is longer than next_lexeme
-      next_lexeme = candidate_lexeme
+  <span class="n">next_lexeme</span> <span class="o">=</span> <span class="s">""</span><span class="p">;</span>
+  <span class="n">candidate_lexeme</span> <span class="o">=</span> <span class="s">""</span><span class="p">;</span>
+  <span class="k">for</span> <span class="p">(</span><span class="n">regex</span> <span class="n">in</span> <span class="n">list_of_regexes</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">candidate_lexeme</span> <span class="o">=</span> <span class="n">regex</span><span class="p">.</span><span class="n">match</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">start_position</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">candidate_lexeme</span> <span class="n">is</span> <span class="n">longer</span> <span class="n">than</span> <span class="n">next_lexeme</span><span class="p">)</span>
+      <span class="n">next_lexeme</span> <span class="o">=</span> <span class="n">candidate_lexeme</span><span class="p">;</span>
+  <span class="p">}</span>
   
-  return next_lexeme
+  <span class="k">return</span> <span class="n">next_lexeme</span><span class="p">;</span>
 </code></pre></div></div>
 
-<p>With this algorithm, we have solved the problem 1 stated above.</p>
+<p>With this algorithm, we have solved our main problem. We have a way to tokenize substrings using a set of regular expressions.</p>
 
 <h2 id="conclusion">Conclusion</h2>
 <p>A C++ implementation of the above ideas can be found <a href="https://github.com/SaurabhJha/roady-lang/tree/master/tokeniser">here</a>.</p>
