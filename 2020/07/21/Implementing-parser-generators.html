@@ -43,22 +43,28 @@
 <p><br /></p>
 
 <h2 id="introduction">Introduction</h2>
-<p>In this article, we will solve the problem of checking the grammatical correctness of a program text. The grammar of a programming language can be
-precisely specified. The grammatical rules of a programming language constitute the <em>syntax</em> of that language.</p>
-
-<p>We will come up with an algorithm to check whether a program text conforms to a given grammar. The concepts discussed here are an essential part of
-programming language implementations.</p>
-
-<p>We will assume that the programs under consideration are already tokenized. Thus, our input is going to be a sequence of tokens. The tokens we will be
-dealing with are as follows.</p>
+<p>Once we have tokenized some program text, we need to check whether the tokens are in the correct sequence. For example, which of the following token
+sequences are valid?</p>
 
 <ol>
-  <li>The token <code class="language-plaintext highlighter-rouge">number</code> will represent positive integers.</li>
-  <li>The token <code class="language-plaintext highlighter-rouge">id</code> will represent identifiers.</li>
-  <li>The symbols <code class="language-plaintext highlighter-rouge">+</code>, <code class="language-plaintext highlighter-rouge">*</code>, <code class="language-plaintext highlighter-rouge">=</code>, <code class="language-plaintext highlighter-rouge">)</code>, and <code class="language-plaintext highlighter-rouge">(</code> will represent themselves. That is, they will represent +, *, =, ), and ( respectively.</li>
+  <li>Tokenization of “32 + 4”: “&lt;number, 32&gt;, &lt;+, +&gt;, &lt;number, 4&gt;”.</li>
+  <li>Tokenization of “+ 32 4”: “&lt;+, +&gt;, &lt;number, 32&gt;, &lt;number, 4&gt;”.</li>
 </ol>
 
-<p>Here are some examples of raw inputs along with their tokenized represenations. The tokenized representations will be our inputs.</p>
+<p>Regular expressions are not powerful enough to make the choices like these.  The rules about which token sequences are valid constitute the
+<em>syntax</em> of a programming language. In this article, we will develop the concepts and techniques of checking syntactic correctness of a program
+text.</p>
+
+<p>We will assume that the program text is already tokenized. Thus, our input is going to be a sequence of tokens. The tokens we will be
+dealing with in this article are as follows.</p>
+
+<ol>
+  <li>The token “number” represents positive integers.</li>
+  <li>The token “id” represents identifiers.</li>
+  <li>The symbols “+”, “-“, “*”, “/”, “=”, “==”, “)”, and “(“ represent themselves.</li>
+</ol>
+
+<p>Here are some examples of raw inputs along with their tokenized represenations.</p>
 
 <table class="table">
   <thead>
@@ -69,71 +75,48 @@ dealing with are as follows.</p>
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rogue">123 + 13132</code></td>
-      <td><code class="language-plaintext highlighter-rogue">number + number</code></td>
+      <td>"123 + 13132"</td>
+      <td>number + number</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rogue">123 * 234 + 12</code></td>
-      <td><code class="language-plaintext highlighter-rogue">number * number + number</code></td>
+      <td>"123 * 234 + 12"</td>
+      <td>"number * number + number"</td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rogue">(978 * 13) / (123 - 12)</code></td>
-      <td>
-        <code class="language-plaintext highlighter-rogue">
-          (number * number) / (number - number)
-        </code>
-      </td>
+      <td>"(978 * 13) / (123 - 12)"</td>
+      <td>"(number * number) / (number - number)"</td>
     </tr>
   </tbody>
 </table>
-<p>For brevity, we will be referring to a sequence of tokens as a <em>string</em>.</p>
 
-<p>The main problem we are solving in this article can be stated as follows.</p>
-
-<div class="definition">
-  <p class="definition-title">Problem 1: Syntactic checking of a program</p>
-  <p>
-    Given a syntax specification and a program text, can we check whether the program text conforms to the specification?
-  </p>
-</div>
-
-<p>As we solve problem 1, we will state and solve other problems along the way.</p>
+<p>For brevity, we will call a sequence of tokens a <em>string</em>.</p>
 
 <h2 id="context-free-grammars">Context-free grammars</h2>
-<p>To get started, we need a way to represent programming language syntax.</p>
-
-<div class="definition">
-  <div class="definition-title">Problem 2: Representing programming language syntax</div>
-  How can we represent syntactic elements of a programming language?
-</div>
-
-<p>Let us start with an easy example. Suppose we want to represent those arithmetic expressions where two numbers are separated by a <code class="language-plaintext highlighter-rouge">+</code> sign. We can
-represent this idea using the following notation.</p>
+<p>We need a way to represent programming language syntax. Let’s start with a simple example. Suppose we want to represent those
+arithmetic expressions where two positive integers are separated by a “+” sign. We can represent this idea using the following notation.</p>
 
 \[expr \rightarrow \underline{number} \underline{+} \underline{number}\]
 
-<p>This is an example of a <em>production</em>. The words that appear in a production are called the <em>symbols</em>. The symbol on the left hand side of the arrow is called
-the <em>head</em> of the production. The symbols on the right side of the arrow are collectively called the <em>body</em> of the production. The underlined symbols
-are those that can appear in the input and are called the <em>terminals</em>. The symbols that are not terminals are called the <em>non terminals</em>.</p>
+<p>This is an example of a <em>production</em>. There are two parts separated by an arrow. The symbol “expr” on the left of the arrow is the <em>head</em>
+of this production. The symbols “number”, “+”, and “number” on the right are collectively the <em>body</em> of this production. The underlined symbols
+appear in the input and are called the <em>terminals</em>. Symbols that are not terminals are called the <em>non terminals</em>.</p>
 
-<p>Only one input, <code class="language-plaintext highlighter-rouge">number + number</code>, conforms to the above production. To represent an arithmetic expression like <code class="language-plaintext highlighter-rouge">number + number + number</code>, we can
-write a new production.</p>
+<p>Only “number + number” conforms to the above production. To represent “number + number + number”, we need to write a new production.</p>
 
 \[expr \rightarrow \underline{number} + \underline{number} + \underline{number}\]
 
-<p>Let us now tackle the problem of representing arithmetic expressions where an arbitrary number of <code class="language-plaintext highlighter-rouge">number</code> tokens are seperated by <code class="language-plaintext highlighter-rouge">+</code> tokens.
-The phrase “an arbitrary number” suggests induction. So, how do we express an inductive definition using a production? We can’t. We need atleast
-two productions to represent an inductive definition.</p>
+<p>What if we want to represent an unbounded number of “number” tokens separated by “+” signs? The phrase “an unbounded number” suggests induction.
+We need atleast two productions to represent an inductive definition.</p>
 
 \[\begin{align*}
   expr &amp; \rightarrow expr \underline{+} \underline{number} \\
   expr &amp; \rightarrow \underline{number}
 \end{align*}\]
 
-<p>In the above set of productions, the second production is the basis case and the first production is the inductive case. Before we explain how to use these
-set of productions to represent a string like <code class="language-plaintext highlighter-rouge">number + number + number</code>, we need to define a new concept.</p>
+<p>In the above set of productions, the second production is the basis case and the first production is the inductive case. Before we can use this
+set of productions to represent something like “number + number + number”, we need to define a new concept.</p>
 
-<p>If we designate a non terminal as a <em>start symbol</em> in a set of productions, we have a context-free grammar.</p>
+<p>In a set of productions, if we designate a non terminal as a <em>start symbol</em>, we have a context-free grammar.</p>
 
 <div class="definition">
   <p class="definition-title">Definition 1: Context-Free Grammar</p>
@@ -163,12 +146,12 @@ set of productions to represent a string like <code class="language-plaintext hi
 <ol>
   <li>\(V = \{expr\}\),</li>
   <li>\(\Sigma = \{number, +\}\),</li>
-  <li>\(P\) is the list of productions, and</li>
+  <li>\(P\) is the set of productions, and</li>
   <li>\(S = expr\).</li>
 </ol>
 
-<p>A string is a member of a grammar if that string can be <em>derived</em> from that grammar. Let us derive the string <code class="language-plaintext highlighter-rouge">number + number + number</code> using our addition
-grammar. We start with the start symbol.</p>
+<p>A string is a member of a grammar if it can be <em>derived</em> using that grammar. Let us derive “number + number + number” using our addition grammar. We start
+with the start symbol.</p>
 
 \[\begin{align*}
   expr
@@ -206,7 +189,7 @@ grammar. We start with the start symbol.</p>
   <p>The sequence of steps taken by a grammar to produce a string starting from the start symbol of the grammar is called a derivation.</p>
 </div>
 
-<p>The derivation of <code class="language-plaintext highlighter-rouge">number + number + number</code> by the above grammar looks like this.</p>
+<p>The above derivation of “number + number + number” is this.</p>
 
 \[\begin{align*}
   &amp; expr \\
@@ -215,38 +198,24 @@ grammar. We start with the start symbol.</p>
   \implies &amp; number + number + number
 \end{align*}\]
 
-<p>In fact, a context-free grammar can generate multiple strings. Formally, we say that a grammar describes a <em>language</em>.</p>
-
-<div class="definition">
-  <p class="definition-title">Definition 3: Language</p>
-  <p>
-    A language is defined as a set of strings.
-  </p>
-</div>
-
-<p>The language derived by a context-free grammar is called a <em>context-free language</em>. We can verify whether a string is in a context-free language
-by deriving that string using the grammar.</p>
+<p>Context-free grammars describe languages. The langauges defined by context-free grammars are called <em>context-free languages</em>.</p>
 
 <div>
   <p>
-    In our above derivation, we did not describe the rules we use to decide on which production to use at each step. For instance, how did we know that we
-    should apply \(expr \rightarrow expr + number\) in the first three steps but use \(expr \rightarrow number\) in the last step? We will not answer this
-    question directly but we will come back to it again later in another context.
+    One unknown in the above derivation is the choice of production to apply at each step. How did we know that we should apply
+    \(expr \rightarrow expr \underline{+} \underline{number}\) on all but the last step and \(expr \rightarrow \underline{number}\) on the last step?
+    This problem is central to syntax checking and we will address it over the course of the remaining article.
   </p>
 </div>
 
 <p>With context-free grammars, we have a notation to represent the syntactic elements of a programming language.</p>
 
 <h2 id="reductions">Reductions</h2>
-<p>In syntax checking, we are given a grammar and a string and we want to find out if the grammar can derive the given string. Our next problem is this.</p>
+<p>In syntax checking, we are given a grammar and a string and we want to check whether the string is in the language of that grammar. We need to find the
+derivation of that string using the grammar.</p>
 
-<div class="definition">
-  <p class="definition-title">Problem 3: Deriving a given string from a grammar</p>
-  <p>Given a string and a grammar, how can we tell whether the grammar derives that string?</p>
-</div>
-
-<p>To gain some intuition into this problem, let us repeat the above derivation we did for <code class="language-plaintext highlighter-rouge">number + number + number</code> but in the reverse direction. We start
-with the input and “un-derive” it to the start symbol.</p>
+<p>A more convinient way to look into this problem is to look at derivations in reverse. The above derivation of “number + number + number” in reverse
+looks like this.</p>
 
 \[\begin{align*}
   &amp; number + number + number \\
@@ -255,30 +224,23 @@ with the input and “un-derive” it to the start symbol.</p>
   \implies &amp; expr
 \end{align*}\]
 
-<p>We are finding instances of production bodies in the string and replacing them with production heads. The process of replacing an instance of a
-production body with the corresponding production head is called a <em>reduction</em>. Reduction is the opposite of the application of a production. We can now
+<p>We are finding instances of production bodies in the string and replacing them with production heads. This process of replacing an instance of a
+production body with a production head is called <em>reduction</em>. Reduction is the opposite of the application of a production. We can now
 state the condition under which a string belongs to a context-free language.</p>
 
 <div class="definition">
   <p class="definition-title">Definition 4: Criterion for a string to be derivable from a grammar</p>
   <p>
-    A string can be derived from a grammar if we can reduce the string to the start symbol of that grammar.
+    A string can be derived from a grammar if we can reduce it to the start symbol of that grammar.
   </p>
 </div>
 
-<p>We do not have any mechanism to do reductions yet. In what follows, we will work our way towards implementing reductions.</p>
-
 <h2 id="extending-context-free-grammars">Extending context-free grammars</h2>
-<p>The grammar example we have been using so far is contrived. Because of that, we have not uncovered the full complexity of derivations and reductions.
-To make further progress, we should learn more about extending context-free grammars.</p>
-
-<div class="definition">
-  <p class="definition-title">Problem 4: Extending grammars</p>
-  <p>How can we extend a grammar to handle more syntactic elements?</p>
-</div>
+<p>The addition grammar is contrived. Because of that, we have not uncovered the full complexity of derivations and reductions.
+Before moving further, we should learn about extending context-free grammars.</p>
 
 <p>Context-free grammars are defined inductively. Thus, we can extend a context-free grammar by adding more inductive cases as productions.
-Let us try to extend our arithemtic grammar. Right now, it can only handle the <code class="language-plaintext highlighter-rouge">+</code> operator.</p>
+Let’s try to extend our arithemtic grammar. Right now, it can only handle the “+” operator.</p>
 
 <div class="grammar-box">
   <p class="grammar-box-title">Addition grammar</p>
@@ -291,7 +253,7 @@ Let us try to extend our arithemtic grammar. Right now, it can only handle the <
   $$
 </div>
 
-<p>We now want to add support for <code class="language-plaintext highlighter-rouge">*</code> operator. We can do that by adding more productions to our addition grammar.</p>
+<p>We now want to add support for the “*” operator. We can do that by adding more productions to our addition grammar.</p>
 
 <div class="grammar-box">
   <p class="grammar-box-title">Addition and multiplication grammar</p>
@@ -313,8 +275,8 @@ Let us try to extend our arithemtic grammar. Right now, it can only handle the <
 </div>
 
 <p>One way to add more induction cases is to introduce new non terminals. This is what led us from addition grammar to addition and multiplication grammar.
-Let us look at another example. If we want to handle parenthesized expressions like <code class="language-plaintext highlighter-rouge">(123 + 12) * 3</code>, we can extend our addition and multiplication grammar
-as follows.</p>
+Let us look at another example. If we want to handle parenthesized expressions like “(123 + 12) * 3”, we can extend our addition and multiplication grammar
+like this.</p>
 
 <div class="grammar-box">
   <p class="grammar-box-title">Addition and multiplication with parenthesis</p>
@@ -340,7 +302,7 @@ as follows.</p>
 </div>
 
 <p>We can add inductive cases to our grammar without introducing new non terminals by changing the way non terminals are arranged in production bodies.
-Let us extend our grammar to handle <code class="language-plaintext highlighter-rouge">\</code> and <code class="language-plaintext highlighter-rouge">-</code> operators. The grammar to do it would be as follows.</p>
+Let us extend our grammar to handle “" and “-“ operators.</p>
 
 <div class="grammar-box">
   <p class="grammar-box-title">Complete arithmetic grammar</p>
@@ -370,19 +332,11 @@ Let us extend our grammar to handle <code class="language-plaintext highlighter-
 original addition grammar.</p>
 
 <h2 id="implementing-reductions">Implementing reductions</h2>
-<p>Let us go back to the problem of implementing reductions.</p>
+<p>Let us go back to the problem of implementing reductions. The implementations of reductions, and of grammars, are called parsers. The process of
+reducing a string of tokens to the start symbol of a grammar is called <em>parsing</em>.</p>
 
-<div class="definition">
-  <p class="definition-title">Problem 5: Implementing reductions</p>
-  <p>What data structures and algorithms can we use to implement reductions?</p>
-</div>
-
-<p>The implementations of reductions, and of grammars, are called parsers. The process of reducing a string of tokens to the start symbol of
-a grammar is called <em>parsing</em>.</p>
-
-<p>We will work through an example string <code class="language-plaintext highlighter-rouge">(number - number) * (number / number)</code> using the complete arithmetic grammar that we developed in the last section.
-To get started, here is how <code class="language-plaintext highlighter-rouge">(number - number) * (number / number)</code> can be derived using the complete arithmetic grammar. Notice that at each step,
-we apply a production to the rightmost terminal. This technique of derivation is called <em>rightmost derivation</em>.</p>
+<p>Let us reduce “(number - number) * (number / number)” using the complete arithmetic grammar. To get started, here is the derivation of “(number - number) * (number / number)” using the complete arithmetic grammar. Notice that at each step, we apply a production to the rightmost terminal. This technique is
+called the <em>rightmost derivation</em>.</p>
 
 <div>
   $$
@@ -502,7 +456,7 @@ state looks like this.</p>
 
 <div>
   <p>
-    Before doing any more shifts, we need to do a reduce on the top token of the stack \(number\) using \(f\!actor \rightarrow number\). This is suggested
+    Before doing any more shifts, we need to reduce the top token of the stack \(number\) using \(f\!actor \rightarrow \underline{number}\). This is suggested
     by the reduction steps we described above.
   </p>
 </div>
@@ -560,7 +514,7 @@ state looks like this.</p>
   </tbody>
 </table>
 
-<p>We should now perform two shifts.</p>
+<p>We now do two shifts.</p>
 
 <table class="table table-bordered">
   <thead>
@@ -582,7 +536,7 @@ state looks like this.</p>
 </table>
 
 <div>
-  <p>We next do two reductions on the top symbol, one using \(f\!actor \rightarrow number\) and another using \(term \rightarrow f\!actor\).</p>
+  <p>We next do two reductions on the top symbol, one using \(f\!actor \rightarrow \underline{number}\) and another using \(term \rightarrow f\!actor\).</p>
 </div>
 
 <table class="table table-bordered">
@@ -607,7 +561,7 @@ state looks like this.</p>
 <div>
   <p>
     So far, we have been reducing only the top symbol. Our next reduction is going to use the top three tokens using the production
-    \(expr \rightarrow expr - term\).
+    \(expr \rightarrow expr \underline{-} term\).
   </p>
 </div>
 
@@ -644,7 +598,7 @@ state looks like this.</p>
 </table>
 
 <div>
-  <p>We now reduce the entire stack contents using the production \(f\!actor \rightarrow (expr)\).</p>
+  <p>We now reduce the entire stack contents using the production \(f\!actor \rightarrow \underline{(}expr\underline{)}\).</p>
 </div>
 
 <table class="table table-bordered">
@@ -668,9 +622,8 @@ state looks like this.</p>
   <li>We need to select a production whenever we perform a reduce.</li>
 </ol>
 
-<p>We continue executing the actions similar to above till we have only got the start symbol on the stack. The following moves are similar to what we have
-performed so far and are presented below. Also added is a column of explanations for each of these steps. On each row, the explanation is the action we do
-to get the next row.</p>
+<p>We continue executing actions similar to above till we have only the start symbol on the stack. We add a new column of explanations for each of these steps.
+On each row, the explanation is the action we do to get the next row.</p>
 
 <table class="table table-bordered">
   <thead>
@@ -704,7 +657,7 @@ to get the next row.</p>
     <tr>
       <td class="text-right">\(term \space * (number\)</td>
       <td>\(/ \space number)\)</td>
-      <td>reduce using \(f\!actor \rightarrow number\)</td>
+      <td>reduce using \(f\!actor \rightarrow \underline{number}\)</td>
     </tr>
     <tr>
       <td class="text-right">\(term \space * (f\!actor\)</td>
@@ -724,12 +677,12 @@ to get the next row.</p>
     <tr>
       <td class="text-right">\(term \space * (term \space / \space number\)</td>
       <td>\()\)</td>
-      <td>reduce using \(f\!actor \rightarrow number\)</td>
+      <td>reduce using \(f\!actor \rightarrow \underline{number}\)</td>
     </tr>
     <tr>
       <td class="text-right">\(term \space * (term \space / \space f\!actor\)</td>
       <td>\()\)</td>
-      <td>reduce using \(term \rightarrow term \space / \space f\!actor\)</td>
+      <td>reduce using \(term \rightarrow term \space \underline{/} \space f\!actor\)</td>
     </tr>
     <tr>
       <td class="text-right">\(term \space * (term\)</td>
@@ -749,7 +702,7 @@ to get the next row.</p>
     <tr>
       <td class="text-right">\(term \space * f\!actor\)</td>
       <td></td>
-      <td>reduce using \(term \rightarrow term * f\!actor\)</td>
+      <td>reduce using \(term \rightarrow term \underline{*} f\!actor\)</td>
     </tr>
     <tr>
       <td class="text-right">\(term\)</td>
@@ -772,26 +725,40 @@ makes decisions at each step and we don’t yet know how to make those decisions
 </ol>
 
 <p>In other words, we have the mechanisms in place but not the <em>policies</em> to drive those mechanisms. We will focus next on changing our above implementation
-so that it can make those decisions automatically.</p>
+so that it can make those decisions.</p>
 
 <h2 id="implementing-parsing-decisions">Implementing parsing decisions</h2>
-<p>We are solving the following problem in this section.</p>
-
-<div class="definition">
-  <p class="definition-title">Problem 6: Implementing parsing decisions</p>
-  <p>How can we decide whether to shift or to reduce at each parsing step?</p>
-  <p>If we are reducing, which production should we use to perform the reduction?</p>
-</div>
-
-<p>We first need to clarify the decision inputs at each step. We have access to the following information pieces.</p>
+<p>What are the decision inputs at each step? We have two pieces of information.</p>
 
 <ol>
   <li>The entire stack that is read from right to left.</li>
   <li>The next token in the array of tokens that we are parsing. In other words, we have a <em>lookahead</em> of one symbol.</li>
 </ol>
 
-<p>A reduction of stack contents results in a non terminal at the top of the stack. The reduction is valid if the next token in the input can follow that
-non terminal in a derivation step. Let us look at an example. Suppose we have a parser state that looks like this.</p>
+<p>To see how these information pieces can be used to make a decision, let’s look at the reduction of “number + number * number”.</p>
+
+<div>
+  $$
+  \begin{align*}
+    &amp; number + number * number \\
+    \implies &amp; f\!actor + number * number \\
+    \implies &amp; term + number * number \\
+    \implies &amp; expr + number * number \\
+    \implies &amp; expr + f\!actor * number \\
+    \implies &amp; expr + term * number \\
+    \implies &amp; expr + term * f\!actor \\
+    \implies &amp; expr + term \\
+    \implies &amp; expr
+  \end{align*}
+  $$
+</div>
+
+<div>
+  <p>
+    We notice that terminals follow non terminals at some derivation steps. For example, terminal \(+\) follows non terminals \(term\), \(f\!actor\),
+    and \(expr\). At one point, the parser state would look like this.
+  </p>
+</div>
 
 <table class="table table-bordered">
   <thead>
@@ -802,83 +769,29 @@ non terminal in a derivation step. Let us look at an example. Suppose we have a 
   </thead>
   <tbody>
     <tr>
-      <td class="text-right">\((expr - number\)</td>
-      <td>\()* (number \space / \space number)\)</td>
+      <td class="text-right">\((f\!actor\)</td>
+      <td>\(+ number * number\)</td>
     </tr>
   </tbody>
 </table>
 
 <div>
   <p>
-    We can reduce the \(number\) token on the stack using \(f\!actor \rightarrow number\) if \()\) can follow \(f\!actor\) in a derivation step.
+    We say that we can reduce \(f\!actor\) to \(term\) only if \(+\) can follow \(term\) in a derivation step. That's indeed the case and the parser proceeds.
   </p>
 </div>
 
-<p>Therefore, to make progress with the parser implementation, we need to find the terminals that can follow each non terminal of a grammar during a derivation.
-We formalize this concept as follows.</p>
+<p>Therefore, to make progress with the parser implementation, we need to find the terminals that can follow each non terminal of a grammar during a derivation.</p>
 
 <div class="definition">
   <p class="definition-title">Definition 5: Follow set of a non terminal</p>
   <p>The follow set of a non terminal is the set of terminals that can follow it in a derivation step.</p>
 </div>
 
-<p>Let us look at our complete arithmetic grammar again.</p>
+<p>What happens if a non terminal is followed by another non terminal in a parser state? That’s not possible in our arithmetic grammar above because all
+non terminals are followed by terminals so let’s create a new grammar to answer this question.</p>
 
-<div class="grammar-box">
-  <p class="grammar-box-title">Complete arithmetic grammar</p>
-  <p>Start symbol: expr</p>
-  $$
-  \begin{align*}
-    expr &amp; \rightarrow expr \underline{+} term \\
-    expr &amp; \rightarrow expr \underline{-} term \\
-    expr &amp; \rightarrow term \\
-    term &amp; \rightarrow term \underline{*} f\!actor \\
-    term &amp; \rightarrow term \space \underline{/} \space f\!actor \\
-    term &amp; \rightarrow f\!actor \\
-    f\!actor &amp; \rightarrow \underline{number} \\
-    f\!actor &amp; \rightarrow \underline{(} expr \underline{)}
-  \end{align*}
-  $$
-</div>
-
-<p>And let us look at the rightmost derivation of <code class="language-plaintext highlighter-rouge">number + number * number</code>.</p>
-
-<div>
-  $$
-  \begin{align*}
-    &amp; expr \\
-    \implies &amp; expr + term \\
-    \implies &amp; expr + term * f\!actor \\
-    \implies &amp; expr + term * number \\
-    \implies &amp; expr + f\!actor * number \\
-    \implies &amp; expr + number * number \\
-    \implies &amp; term + number * number \\
-    \implies &amp; f\!actor + number * number \\
-    \implies &amp; number + number * number
-  \end{align*}
-  $$
-</div>
-
-<div>
-  <p>
-    From the above derivation, we notice that \(+\) is in the follow set of \(expr\), \(*\) is in the follow set of \(term\), and \(*\) is in the
-    follow set of \(f\!actor\). 
-  </p>
-</div>
-
-<div>
-  <p>
-    In general, any terminal that immediately follows a non terminal in a production is included in the follow set of that non terminal. Thus, in our above
-    grammar, \(+\) is in the follow set of \(expr\) and \(*\) is in the follow set of \(term\).
-  </p>
-</div>
-
-<p>What happens
-if a non terminal follows a non terminal? Our arithmetic grammar does not have any non terminal that is followed by another non terminal so let
-us create a new grammar to explore this question.</p>
-
-<p>Suppose we want to express C-like declaration statements like <code class="language-plaintext highlighter-rouge">int foo, bar;</code> or <code class="language-plaintext highlighter-rouge">float temperature;</code>. The grammar to represent declaration statements
-is as follows.</p>
+<p>Suppose we want to express C-like declaration statements like “int foo, bar;” or “float temperature;”. Here’s a grammar to represent declaration statements.</p>
 
 <div class="grammar-box">
   <p class="grammar-box-title">Declaration statement grammar</p>
@@ -897,19 +810,18 @@ is as follows.</p>
 <div>
   <p>
     In the first production, we have a non terminal \(type\) followed by another non terminal \(variables\_list\). How can we compute
-    the follow set of \(type\)? Solving this problem requires clarifying what do non terminals actually represent. We will answer this question first and
-    then go back to the follow sets afterwards.
+    the follow set of \(type\)? Solving this problem requires clarifying what do non terminals represent. We will first clarify what non terminals
+    are before going back to the follow sets.
   </p>
 </div>
 
 <div>
   <p>
-    <i>Every non terminal of a grammar derives a string</i>. For example, in our declaration statements grammar, some of the strings
-    derivable from the non terminal \(variables\_list\) are as follows.
+    <i>Every non terminal of a grammar derives strings</i>. In our declaration statements grammar, non terminal \(variables\_list\) derives strings like these.
     <ul>
-      <li><code class="language-plaintext highlighter-rogue">variable</code></li>
-      <li><code class="language-plaintext highlighter-rogue">variable, variable</code></li>
-      <li><code class="language-plaintext highlighter-rogue">variable, variable, variable</code></li>
+      <li>"variable"</li>
+      <li>"variable, variable"</li>
+      <li>"variable, variable, variable"</li>
     </ul>
   </p>
 </div>
@@ -927,21 +839,21 @@ is as follows.</p>
 <div>
   <p>In our arithmetic grammar, some of the strings derivable from the non terminal \(term\) look like these.</p>
   <ul>
-    <li><code class="language-plaintext highlighter-rogue">number</code></li>
-    <li><code class="language-plaintext highlighter-rogue">number * number</code></li>
-    <li><code class="language-plaintext highlighter-rogue">(number) * number</code></li>
+    <li>"number"</li>
+    <li>"number * number"</li>
+    <li>"(number) * number"</li>
   </ul>
   <p>
-    These strings either start with \(number\) or \((\). Thus, the first set of the non terminal \(term\) is \(\{number, \space (\space\}\).
+    These strings start with either \(number\) or \((\). Thus, the first set of \(term\) is \(\{number, \space (\space\}\).
   </p>
 </div>
 
 <div>
-  <p>As another example, in our declaration grammar, some of the strings derivable from the non terminal \(variables\_list\) look like these.</p>
+  <p>In our declaration grammar, some of the strings derivable from the non terminal \(variables\_list\) look like these.</p>
   <ul>
-    <li><code class="language-plaintext highlighter-rogue">variable</code></li>
-    <li><code class="language-plaintext highlighter-rogue">variable, variable</code></li>
-    <li><code class="language-plaintext highlighter-rogue">variable, variable, variable</code></li>
+    <li>"variable"</li>
+    <li>"variable, variable"</li>
+    <li>"variable, variable, variable"</li>
   </ul>
   <p>Thus, the first set of \(variables\_list\) is \(\{variable\}\).</p>
 </div>
@@ -952,16 +864,16 @@ are computing the first set of is a terminal. The recursive case is when the gra
 <div>
   <p>
     To come up with an algorithm, let us look at some examples of how strings are derived from a non terminal. We will use our declaration grammar and
-    calculate the first set of the non terminal \(declaration\). Some of the strings derived from \(declaration\), along with their rightmost derivations,
+    compute the first set of the non terminal \(declaration\). Some of the strings derived from \(declaration\), along with their rightmost derivations,
     look like these.
   </p>
   <ul>
     <li>
-      String: <code class="language-plaintext highlighter-rogue">float variable;</code><br />
+      String: "float variable;"<br />
       Derivation: \(declaration \Rightarrow type \space variables\_list; \Rightarrow type \space variable; \Rightarrow f\!loat \space variable; \)
     </li>
     <li>
-      String: <code class="language-plaintext highlighter-rogue">int variable, variable;</code> <br />
+      String: "int variable, variable;"<br />
       Derivation: \(declaration \Rightarrow type \space variables\_list; \Rightarrow type \space variables\_list, \space variable;
       \Rightarrow type \space variable, \space variable; \Rightarrow int \space variable, \space variable; \)
     </li>
@@ -982,9 +894,9 @@ are computing the first set of is a terminal. The recursive case is when the gra
   </li>
 </ul>
 
-<p>We are now in a position to write down the recursive algorithm to compute first set.</p>
+<p>We are now in a position to write down a recursive algorithm to compute first set.</p>
 
-<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><table class="rouge-table"><tbody><tr><td class="gutter gl"><pre class="lineno">1
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><table class="rouge-table"><tbody><tr><td class="gutter gl"><pre class="lineno">1
 2
 3
 4
@@ -1000,29 +912,21 @@ are computing the first set of is a terminal. The recursive case is when the gra
 14
 15
 16
-17
-18
-19
-20
-</pre></td><td class="code"><pre><span class="n">compute_first_set</span><span class="p">(</span><span class="n">grammar_symbol</span><span class="p">)</span>
-<span class="p">{</span>
-  <span class="k">if</span> <span class="p">(</span><span class="n">grammar_symbol</span> <span class="n">is</span> <span class="n">a</span> <span class="n">terminal</span><span class="p">)</span>
-    <span class="cp"># Basis case
-</span>    <span class="k">return</span> <span class="p">{</span><span class="n">grammar_symbol</span><span class="p">};</span>
-  <span class="k">else</span> <span class="p">{</span>
-    <span class="cp"># Recursive case
+</pre></td><td class="code"><pre><span class="n">compute_first_set</span><span class="p">(</span><span class="n">grammar_symbol</span><span class="p">):</span>
+  <span class="k">if</span> <span class="p">(</span><span class="n">grammar_symbol</span> <span class="ow">is</span> <span class="n">a</span> <span class="n">terminal</span><span class="p">):</span>
+    <span class="c1"># Basis case
+</span>    <span class="k">return</span> <span class="p">{</span><span class="n">grammar_symbol</span><span class="p">}</span>
+  <span class="k">else</span><span class="p">:</span>
+    <span class="c1"># Recursive case
 </span>    <span class="n">first_set</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="n">productions_of_grammar_symbol</span> <span class="o">=</span> <span class="n">get_all_productions_of_grammar_symbol</span><span class="p">(</span><span class="n">grammar_symbol</span><span class="p">);</span>
-    <span class="k">for</span> <span class="p">(</span><span class="n">production</span> <span class="o">:</span> <span class="n">productions_of_grammar_symbol</span><span class="p">)</span> <span class="p">{</span>
-      <span class="n">first_symbol_of_production_body</span> <span class="o">=</span> <span class="n">get_first_symbol_of_production_body</span><span class="p">(</span><span class="n">production</span><span class="p">);</span>
-      <span class="k">if</span> <span class="p">(</span><span class="n">first_symbol_of_production_body</span> <span class="o">!=</span> <span class="n">grammar_symbol</span><span class="p">)</span> <span class="p">{</span>
-        <span class="c1">// Recurse</span>
-        <span class="n">first_set_of_body_symbol</span> <span class="o">=</span> <span class="n">compute_first_set</span><span class="p">(</span><span class="n">first_symbol_of_production_body</span><span class="p">)</span>
-        <span class="n">first_set</span><span class="p">.</span><span class="n">union_with</span><span class="p">(</span><span class="n">first_set_of_body_symbol</span><span class="p">);</span>
-      <span class="p">}</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-  <span class="k">return</span> <span class="n">first_set</span><span class="p">;</span>
+    <span class="n">productions_of_grammar_symbol</span> <span class="o">=</span> <span class="n">get_all_productions_of_grammar_symbol</span><span class="p">(</span><span class="n">grammar_symbol</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">production</span> <span class="ow">in</span> <span class="n">productions_of_grammar_symbol</span><span class="p">:</span>
+      <span class="n">first_symbol_of_production_body</span> <span class="o">=</span> <span class="n">get_first_symbol_of_production_body</span><span class="p">(</span><span class="n">production</span><span class="p">)</span>
+      <span class="k">if</span> <span class="n">first_symbol_of_production_body</span> <span class="o">!=</span> <span class="n">grammar_symbol</span><span class="p">:</span>
+        <span class="c1"># Recurse
+</span>        <span class="n">first_set_of_body_symbol</span> <span class="o">=</span> <span class="n">compute_first_set</span><span class="p">(</span><span class="n">first_symbol_of_production_body</span><span class="p">)</span>
+        <span class="n">first_set</span><span class="p">.</span><span class="n">union_with</span><span class="p">(</span><span class="n">first_set_of_body_symbol</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">first_set</span>
 <span class="p">}</span>
 </pre></td></tr></tbody></table></code></pre></figure>
 
@@ -1046,7 +950,7 @@ are computing the first set of is a terminal. The recursive case is when the gra
   $$
 </div>
 
-<p>The executation of <code class="language-plaintext highlighter-rouge">compute_first_set(declaration)</code> looks like this.</p>
+<p>The execution looks like this.</p>
 
 <div>
   $$
@@ -1080,7 +984,7 @@ are computing the first set of is a terminal. The recursive case is when the gra
   $$
 </div>
 
-<p>The execution of <code class="language-plaintext highlighter-rouge">compute_first_set(expr)</code> is as follows.</p>
+<p>The execution looks like this.</p>
 
 <div>
   $$
@@ -1118,7 +1022,7 @@ non terminal.</p>
 
 <p>We now have enough information to write an algorithm to compute follow sets.</p>
 
-<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><table class="rouge-table"><tbody><tr><td class="gutter gl"><pre class="lineno">1
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><table class="rouge-table"><tbody><tr><td class="gutter gl"><pre class="lineno">1
 2
 3
 4
@@ -1135,26 +1039,22 @@ non terminal.</p>
 15
 16
 17
-18
-19
-</pre></td><td class="code"><pre><span class="n">compute_follow_set</span><span class="p">(</span><span class="n">non_terminal</span><span class="p">)</span>
+</pre></td><td class="code"><pre><span class="n">compute_follow_set</span><span class="p">(</span><span class="n">non_terminal</span><span class="p">):</span>
 <span class="p">{</span>
   <span class="n">follow_set</span> <span class="o">=</span> <span class="p">{}</span>
 
-  <span class="p">(</span><span class="k">for</span> <span class="n">production</span> <span class="o">:</span> <span class="n">productions</span><span class="p">)</span> <span class="p">{</span>
-    <span class="n">production_body</span> <span class="o">=</span> <span class="n">production</span><span class="p">.</span><span class="n">get_body</span><span class="p">();</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">the</span> <span class="n">given</span> <span class="n">non</span> <span class="n">terminal</span> <span class="n">does</span> <span class="n">not</span> <span class="n">appear</span> <span class="n">in</span> <span class="n">the</span> <span class="n">production</span> <span class="n">body</span><span class="p">)</span>
-      <span class="n">skip</span><span class="p">;</span>
+  <span class="k">for</span> <span class="n">production</span> <span class="ow">in</span> <span class="n">productions</span> <span class="p">{</span>
+    <span class="n">production_body</span> <span class="o">=</span> <span class="n">production</span><span class="p">.</span><span class="n">get_body</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">the</span> <span class="n">given</span> <span class="n">non</span> <span class="n">terminal</span> <span class="n">does</span> <span class="ow">not</span> <span class="n">appear</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">production</span> <span class="n">body</span><span class="p">:</span>
+      <span class="k">continue</span>
 
-    <span class="k">if</span> <span class="p">(</span><span class="n">the</span> <span class="n">given</span> <span class="n">non</span> <span class="n">terminal</span> <span class="n">is</span> <span class="n">not</span> <span class="n">the</span> <span class="n">last</span> <span class="n">symbol</span> <span class="n">of</span> <span class="n">the</span> <span class="n">production_body</span><span class="p">)</span>
-      <span class="n">follow_set</span><span class="p">.</span><span class="n">union_with</span><span class="p">(</span><span class="n">compute_first_set</span><span class="p">(</span><span class="n">symbol</span> <span class="n">following</span> <span class="n">the</span> <span class="n">given</span> <span class="n">non</span> <span class="n">terminal</span><span class="p">));</span>
-    <span class="k">else</span> <span class="p">{</span>
-      <span class="n">production_head</span> <span class="o">=</span> <span class="n">production</span><span class="p">.</span><span class="n">get_head</span><span class="p">();</span>
-      <span class="n">follow_set</span><span class="p">.</span><span class="n">union_with</span><span class="p">(</span><span class="n">compute_follow_set</span><span class="p">(</span><span class="n">production_head</span><span class="p">));</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
+    <span class="k">if</span> <span class="n">the</span> <span class="n">given</span> <span class="n">non</span> <span class="n">terminal</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">the</span> <span class="n">last</span> <span class="n">symbol</span> <span class="n">of</span> <span class="n">the</span> <span class="n">production_body</span><span class="p">:</span>
+      <span class="n">follow_set</span><span class="p">.</span><span class="n">union_with</span><span class="p">(</span><span class="n">compute_first_set</span><span class="p">(</span><span class="n">symbol</span> <span class="n">following</span> <span class="n">the</span> <span class="n">given</span> <span class="n">non</span> <span class="n">terminal</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="n">production_head</span> <span class="o">=</span> <span class="n">production</span><span class="p">.</span><span class="n">get_head</span><span class="p">()</span>
+      <span class="n">follow_set</span><span class="p">.</span><span class="n">union_with</span><span class="p">(</span><span class="n">compute_follow_set</span><span class="p">(</span><span class="n">production_head</span><span class="p">))</span>
 
-  <span class="k">return</span> <span class="n">follow_set</span><span class="p">;</span>
+  <span class="k">return</span> <span class="n">follow_set</span>
 <span class="p">}</span>
 </pre></td></tr></tbody></table></code></pre></figure>
 
@@ -1177,7 +1077,7 @@ non terminal.</p>
   $$
 </div>
 
-<p>The execution of <code class="language-plaintext highlighter-rouge">compute_follow_set(factor)</code> is as follows.</p>
+<p>Here is the execution of “compute_follow_set(factor)”.</p>
 
 <div>
   $$
@@ -1192,18 +1092,17 @@ non terminal.</p>
   $$
 </div>
 
-<p>Armed with the algorithms to compute follow sets, we can go back to making decisions at each parsing step. We can now answer both questions we posed earlier.
+<p>We can now go back to making decisions at parsing steps. We can now answer both questions we posed earlier.
 The statements below cannot be justified in a formal way and hence we will call them heuristics. These heuristics will always work for the grammars we
-will consider along with a whole lot of other grammars that appear in programming languages.</p>
+will consider and they work for grammars that common occur in programming language syntax specifications.</p>
 
 <ol>
-  <li>The first question was about deciding whether to shift or to reduce at each parsing step. The answer is this. If the next input token is in the
-follow set of the non terminal that appears on the top of the stack after reduction, we reduce. Otherwise, we shift.</li>
-  <li>If we can choose between multiple productions of the same non terminal, we choose the one which reduces the maximum of the stack contents starting
-from the top.</li>
+  <li>The first question was about deciding whether to shift or to reduce at each parsing step. The answer is this. If we reduce the top stack contents and
+the resulting non terminal has the following token in its follow set, we reduce. Otherwise, we shift.</li>
+  <li>If we can choose between multiple productions, we choose the one which reduces the maximum of the stack contents.</li>
 </ol>
 
-<p>Let us see an example of how these heuristics can be applied in practice. We will parse <code class="language-plaintext highlighter-rouge">(number - number) * number</code> using our arithmetic grammar.
+<p>Let’s see an example of how these heuristics can be applied in practice. We will parse “(number - number) * number” using our arithmetic grammar.
 Before we do our parsing, we should write down the follow sets of each non terminal.</p>
 
 <div>
@@ -1216,7 +1115,7 @@ Before we do our parsing, we should write down the follow sets of each non termi
   $$
 </div>
 
-<p>The initial state of the parser looks like this.</p>
+<p>The initial state of the parser is this.</p>
 
 <table class="table table-bordered">
   <thead>
@@ -1522,14 +1421,14 @@ Before we do our parsing, we should write down the follow sets of each non termi
   </tbody>
 </table>
 
-<p>We are stuck now. We cannot do any more moves now but we still haven’t reduced the stack contents to the start symbol. And we do know that the
-input is parseable with the arithmetic grammar. We need to introduce more features into our parser to get past this stuck state.</p>
+<p>We are stuck now. We cannot do any more moves but we still haven’t reduced the stack contents to the start symbol. We need to introduce more features
+into our parser to get past this stuck state.</p>
 
-<p>We introduce the convention that every input is ended by the marker <code class="language-plaintext highlighter-rouge">$</code>. The <code class="language-plaintext highlighter-rouge">$</code> symbol is not a part of the grammar but it is introduced to mark the end
+<p>We introduce the convention that every input is ended by “$”. The “$” symbol is not a part of the grammar and is introduced to mark the end
 of the inputs we will be parsing.</p>
 
-<p>Suppose we start with the input <code class="language-plaintext highlighter-rouge">number + number $</code>. With our arithmetic grammar, it will be reduced to <code class="language-plaintext highlighter-rouge">expr $</code>. In general, every start symbol is going to
-have <code class="language-plaintext highlighter-rouge">$</code> is in its follow set. Thus, the follow sets of arithmetic grammar that we computed above need revision.</p>
+<p>Suppose we start with the input “number + number $”. With our arithmetic grammar, it will be reduced to “expr $”. In general, every start symbol is going to
+have “$” is in its follow set. Thus, the follow sets of arithmetic grammar that we computed above need revision.</p>
 
 <div>
   $$
@@ -1677,9 +1576,8 @@ have <code class="language-plaintext highlighter-rouge">$</code> is in its follo
 
 <p>Since we have reduced the input to the start symbol, our parsing has finished succesfully.</p>
 
-<p>We now have a definite framework to execute parsing actions and make parsing decisions. What we need to do next is to make the above mechanisms and policies
-more refined so that they are more amenable to implementation. In the next section, we will see parsers in a different light that is equivalent but more
-efficient than the above framework.</p>
+<p>We now have a definite framework to execute parsing actions and make parsing decisions. But we need to make the above mechanisms and policies more amenable
+to implementation. In the next section, we will recast the above framework as a graph problem.</p>
 
 <h2 id="implementing-parsers-using-automata">Implementing parsers using automata</h2>
 <p>In the last section, we arrived at a framework for making parsing decisions. We now have all the ingredients we need to construct a parser programmatically
@@ -1699,7 +1597,7 @@ graph are called the states and the edges are called the transitions. Each finit
 
 <p><img src="/static/img/compilers/second_automata_epsilon.png" class="rounded mx-auto d-block" /></p>
 
-<p>The automaton makes moves on a given string. For example, for the string <code class="language-plaintext highlighter-rouge">ab</code>, the above automaton makes the following moves.</p>
+<p>The automaton makes moves on a given string. For example, for string “ab”, the above automaton makes the following moves.</p>
 
 <div>
   $$
@@ -1707,8 +1605,7 @@ graph are called the states and the edges are called the transitions. Each finit
   $$
 </div>
 
-<p>How can we make use of finite automata to track parser state? To examine that, let us go back to the simplest grammar we had at the
-beginning.</p>
+<p>How can we use finite automata to track parser state? To examine that, let us go back to the simplest grammar we had at the beginning.</p>
 
 <div class="grammar-box">
   <p class="grammar-box-title">Addition with two operands grammar</p>
@@ -1731,7 +1628,7 @@ beginning.</p>
 <p>When we are scanning some input from left to right, we can use the body automaton to keep track of where we are in the input. After we have reduced
 the input to the production head, we can use our head automaton to see if the reduced string is correct.</p>
 
-<p>We can track where we are in a production by introducing a dot in the production body. Here are some examples.</p>
+<p>We can track where we are in a production with a dot in the production body. Here are some examples.</p>
 
 <div>
   $$
@@ -1742,7 +1639,7 @@ the input to the production head, we can use our head automaton to see if the re
   $$
 </div>
 
-<p>We can formally define this concept as follows.</p>
+<p>It is formally defined like this.</p>
 
 <div class="definition">
   <p class="definition-title">Definition 7: Production item</p>
@@ -1755,8 +1652,9 @@ the input to the production head, we can use our head automaton to see if the re
 
 <div>
   <p>
-    If a string takes the above automaton to state 3, we should reduce using the production \(expr \rightarrow \underline{number} \underline{+} \underline{number}\). How can we check whether we have correctly reduced to the head of the production? We can construct a new automaton for the head. To aid that,
-    we augment our grammar by introducing a new production and a new start symbol.
+    If a string takes the above automaton to state 3, we should reduce using the production \(expr \rightarrow \underline{number} \underline{+} \underline{number}\). How can we check whether we have correctly reduced to the head of the production? We can construct a new automaton for the head. To make that more
+    convenient,
+    we augment our grammar with a new production and a new start symbol.
   </p>
 </div>
 
@@ -1771,7 +1669,7 @@ the input to the production head, we can use our head automaton to see if the re
   $$
 </div>
 
-<p>We can now make an automaton to recoginse the string <code class="language-plaintext highlighter-rouge">expr</code>. Let us call it the head automaton.</p>
+<p>We can now make an automaton to recoginse the string “expr”. Let us call it the head automaton.</p>
 
 <p><img src="/static/img/compilers/grammar_two_operand_lr_head.png" class="rounded mx-auto d-block" /></p>
 
@@ -1780,7 +1678,7 @@ the input to the production head, we can use our head automaton to see if the re
   <li>The string takes the body automaton to state 3.</li>
   <li>Once we reach the state 3, we reduce using the addition grammar production.</li>
   <li>We now have the head of the production as the input string. We confirm that by executing the head automaton using the reduced string and checking
-whether it reaches state 1.</li>
+whether it goes to state 1.</li>
 </ol>
 
 <p>There are gaps between these steps that we need to fill. How can we construct a single automaton to execute the above steps. We somehow have to do this.</p>
@@ -1807,7 +1705,7 @@ the automaton took.</p>
 
 <p><img src="/static/img/compilers/grammar_two_operand_complete_automaton.png" class="rounded mx-auto d-block" /></p>
 
-<p>Let us try to recognise the string <code class="language-plaintext highlighter-rouge">number + number</code> using the above automaton and a stack. We represent the stack contents by writing down the elements
+<p>Let us try to parse “number + number” using the above automaton and a stack. We represent the stack contents by writing down the elements
 of the stack seperated by commas such that the top of the stack is on the right. Initially, the stack consists of the start state of the automaton.</p>
 
 <div>
@@ -1816,7 +1714,7 @@ of the stack seperated by commas such that the top of the stack is on the right.
   $$
 </div>
 
-<p>After reading <code class="language-plaintext highlighter-rouge">number</code>, the automaton goes to state 3. We push that state on to the stack.</p>
+<p>After reading “number”, the automaton goes to state 3. We push that state on to the stack.</p>
 
 <div>
   $$
@@ -1824,7 +1722,7 @@ of the stack seperated by commas such that the top of the stack is on the right.
   $$
 </div>
 
-<p>After reading <code class="language-plaintext highlighter-rouge">+</code>, we push state 4 onto the stack.</p>
+<p>After reading “+”, we push state 4 onto the stack.</p>
 
 <div>
   $$
@@ -1832,7 +1730,7 @@ of the stack seperated by commas such that the top of the stack is on the right.
   $$
 </div>
 
-<p>Finally, we ready <code class="language-plaintext highlighter-rouge">number</code> and the new stack state looks like this.</p>
+<p>Finally, we ready “number” and the new stack state looks like this.</p>
 
 <div>
   $$
@@ -1855,7 +1753,7 @@ of the stack seperated by commas such that the top of the stack is on the right.
   $$
 </div>
 
-<p>We have reduced the string to <code class="language-plaintext highlighter-rouge">expr</code>. We now restart the automaton with <code class="language-plaintext highlighter-rouge">expr</code> as the input. The stack looks like this after reading <code class="language-plaintext highlighter-rouge">expr</code>.</p>
+<p>We have reduced the string to “expr”. We now restart the automaton with “expr” as the input. The stack looks like this after reading “expr”.</p>
 
 <div>
   $$
@@ -1863,10 +1761,9 @@ of the stack seperated by commas such that the top of the stack is on the right.
   $$
 </div>
 
-<p>The state of the automaton corresponds to the input reduced to the start symbol. Hence, we say that the automaton has parsed the input <code class="language-plaintext highlighter-rouge">number + number</code>
-succesfully.</p>
+<p>The current state of the automaton corresponds to the input reduced to the start symbol. Hence, the automaton has parsed “number + number” succesfully.</p>
 
-<p>Let us try a slightly more complicated grammar. We augment our original complete addition grammar with a new start symbol.</p>
+<p>Let us try a slightly more complex grammar. We augment our original complete addition grammar with a new start symbol.</p>
 
 <div class="grammar-box">
   <p class="grammar-box-title">Augmented addition grammar</p>
@@ -1888,22 +1785,29 @@ succesfully.</p>
   <p>
     Let us focus first on computing the \(\epsilon\)-closure of this state. An \(\epsilon\)-closure of a state is that state itself along with all
     the other states reachable from that state following \(\epsilon\) moves alone. In our context, it means that if the dot is before a non terminal,
-    we can either see that non terminal itself or some string derivable from that non terminal. So we add as many \(\epsilon\) transitions as there are
+    we can either see that non terminal or some string derivable from that non terminal. So we add as many \(\epsilon\) transitions as there are
     productions of the non-terminal that appears next to the dot.
   </p>
 </div>
 
 <p><img src="/static/img/compilers/grammar_add_all_start_state_closure.png" class="rounded mx-auto d-block" /></p>
 
-<p>Now, starting from state 1, we can include all the states to process <code class="language-plaintext highlighter-rouge">expr + number</code>.</p>
+<div>
+  <p>
+    From state 1, we do not need to compute \(\epsilon\)-closure for the productions of \(expr\) since we have already included all \(expr\) productions
+    in states 0, 1, and 2.
+  </p>
+</div>
+
+<p>Starting from state 1, we can include all the states to process “expr + number”.</p>
 
 <p><img src="/static/img/compilers/grammar_add_all_partial.png" class="rounded mx-auto d-block" /></p>
 
-<p>We can similarly add the states to process <code class="language-plaintext highlighter-rouge">number</code> from state 2, and to process <code class="language-plaintext highlighter-rouge">expr</code> from state 0.</p>
+<p>We can similarly add the states to process “number” from state 2, and to process “expr” from state 0.</p>
 
 <p><img src="/static/img/compilers/grammar_add_all_complete.png" class="rounded mx-auto d-block" /></p>
 
-<p>Let us parse <code class="language-plaintext highlighter-rouge">number + number + number</code> using our above automaton. We will write the stack states on the left and the input that remains
+<p>Let’s parse “number + number + number” using our above automaton. We will write the stack states on the left and the input that remains
 to be parsed on the right. The start state looks like this.</p>
 
 <table class="table table-bordered">
@@ -1921,7 +1825,7 @@ to be parsed on the right. The start state looks like this.</p>
   </tbody>
 </table>
 
-<p>After reading the first token, we reach state 6. The parser state looks like the following.</p>
+<p>After reading the first token, we reach state 6. The parser state now looks like this.</p>
 
 <table class="table table-bordered">
   <thead>
@@ -1941,8 +1845,7 @@ to be parsed on the right. The start state looks like this.</p>
 <div>
   <p>
     State 6 indicates that we should reduce using \(expr \rightarrow number\). We now need to "revise our history" and transition to the state we would have
-    reached after reading <code class="language-plaintext highlighter-rogue">expr</code> from \(\{0, 1, 2\}\) instead of
-    <code class="language-plaintext highlighter-rogue">number</code>. To do that, we do two things.
+    reached after reading "expr" from \(\{0, 1, 2\}\) instead of "number". We do two things.
   </p>
   <ol>
     <li>We pop as many elements from the stack as there are symbols in the body. In our case, we pop off one state.</li>
@@ -1970,9 +1873,9 @@ to be parsed on the right. The start state looks like this.</p>
 
 <div>
   <p>
-    Now, state 7 suggests that we should do a reduce using \(expr' \rightarrow expr\). But we shouldn't because <i>+ is not in the
+    State 7 suggests that we should do a reduce using \(expr' \rightarrow expr\). But we shouldn't because <i>+ is not in the
     follow set of \(expr'\)</i>. To make further progress, we should compute the follow sets of \(expr'\) and \(expr\). We should also re-introduce the
-    convention of terminating the inputs by the symbol <code class="language-plaintext highlighter-rogue">$</code>. The follow sets look like these.
+    convention of terminating the inputs by the symbol "$". The follow sets look like these.
   </p>
 </div>
 
@@ -1986,7 +1889,7 @@ to be parsed on the right. The start state looks like this.</p>
 </div>
 
 <p>Let us continue processing our string using the automaton. There is nothing we can do from state 7 but from state 3, we can follow a transition to state 4
-using <code class="language-plaintext highlighter-rouge">+</code></p>
+using “+”.</p>
 
 <table class="table table-bordered">
   <thead>
@@ -2003,7 +1906,7 @@ using <code class="language-plaintext highlighter-rouge">+</code></p>
   </tbody>
 </table>
 
-<p>And from 4, we can go to 5 following <code class="language-plaintext highlighter-rouge">number</code> transition.</p>
+<p>From 4, we can go to 5 following “number” transition.</p>
 
 <table class="table table-bordered">
   <thead>
@@ -2022,9 +1925,9 @@ using <code class="language-plaintext highlighter-rouge">+</code></p>
 
 <div>
   <p>
-    Now, state 5 indicates that we should reduce using \(expr \rightarrow expr \underline{+} \underline{number}\). And we can do that because \(+\)
+    State 5 indicates that we should reduce using \(expr \rightarrow expr \underline{+} \underline{number}\). And we can do that because \(+\)
     is in the follow set of \(expr\). Thus, we pop off three elements from the stack and follow the
-    <code class="language-plaintext highlighter-rogue">expr</code> transition out of state \(\{0, 1, 2\}\).
+    "expr" transition out of state \(\{0, 1, 2\}\).
   </p>
 </div>
 
@@ -2043,7 +1946,7 @@ using <code class="language-plaintext highlighter-rouge">+</code></p>
   </tbody>
 </table>
 
-<p>Now, like above, we can read off <code class="language-plaintext highlighter-rouge">+</code> and <code class="language-plaintext highlighter-rouge">number</code> in succession. The state after reading the next two tokens would look like this.</p>
+<p>Like above, we can read “+” and “number” in succession. The state after reading the next two tokens is this.</p>
 
 <table class="table table-bordered">
   <thead>
@@ -2061,7 +1964,7 @@ using <code class="language-plaintext highlighter-rouge">+</code></p>
 </table>
 
 <div>
-  <p>Now, we are in state 5 and $ is in the follow set of \(expr\). We can thus reduce using \(expr \rightarrow expr \underline{+} \underline{number}\)
+  <p>We are in state 5 and $ is in the follow set of \(expr\). We can thus reduce using \(expr \rightarrow expr \underline{+} \underline{number}\)
   by popping off three symbols and following \(expr\) out of \(\{0, 1, 2\}\)</p>
 </div>
 
@@ -2087,8 +1990,8 @@ using <code class="language-plaintext highlighter-rouge">+</code></p>
   </p>
 </div>
 
-<p>Let us compare the automaton framework that we just discussed with the stack framework that we discussed before. We can do a side-by-side comparison
-where the addition grammar parses <code class="language-plaintext highlighter-rouge">number + number + number</code>.</p>
+<p>Let’s compare the automaton framework that we just discussed with the stack framework that we discussed before. We can do a side-by-side comparison
+of parsing “number + number + number” using addition grammar.</p>
 
 <table class="table table-bordered">
   <thead>
@@ -2147,15 +2050,14 @@ where the addition grammar parses <code class="language-plaintext highlighter-ro
   </tbody>
 </table>
 
-<p>What we realise is <em>the symbols on the framework stack are exactly those that drive the automaton!</em> Hence, our automaton framework is an equivalent
-representation of our above stack framework. And because the automaton is a directed graph, we can use the standard
-graph data structures and algorithms to implement it. We will thus implement our parser using automaton framework.</p>
+<p><em>The symbols on the framework stack are exactly those that drive the automaton.</em> Hence, the automaton framework is equivalent to the
+stack framework. And because the automaton is a directed graph, we can use the standard graph data structures and algorithms to implement it.</p>
 
 <p>Let us try a slightly more complicated example. Here is the augmented addition and multiplication grammar.</p>
 
 <div class="grammar-box">
   <p class="grammar-box-title">Augmented addition and multiplication</p>
-  <p>Start symbol: expr</p>
+  <p>Start symbol: expr'</p>
   $$
   \begin{align*}
     expr' &amp; \rightarrow expr \\
@@ -2168,26 +2070,24 @@ graph data structures and algorithms to implement it. We will thus implement our
   $$
 </div>
 
-<p>Here is the start state and its closure set.</p>
+<div>
+  <p>
+    Here is the start state and its closure set. Remember that if there is a dot before a non terminal, we need to add \(\epsilon\)-transitions to all
+    the productions of that non terminal. So we add \(\epsilon\)-transitions out of state 0 to the \(expr\) productions, from state
+    2 to \(term\) productions, and from state 4 to \(f\!actor\) productions.
+  </p>
+</div>
 
 <p><img src="/static/img/compilers/grammar_add_mul_start_state.png" class="rounded mx-auto d-block" /></p>
 
 <div>
   <p>
-    Remember that if there is a dot before a non terminal, we need to add \(\epsilon\)-transitions to all the productions of that non terminal. So
-    we add \(\epsilon\)-transitions out of state 0 to the \(expr\) productions, from state 2 to \(term\) productions, and from state 4 to \(f\!actor\)
-    productions.
-  </p>
-</div>
-
-<div>
-  <p>
-    In general, we can compute the \(\epsilon\)-closure of a state by doing a breadth first search on \(\epsilon\)-transitions. The algorithm looks
+    In general, we can compute the \(\epsilon\)-closure of an item by doing a breadth first search on \(\epsilon\)-transitions. The algorithm looks
     like this
   </p>
 </div>
 
-<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><table class="rouge-table"><tbody><tr><td class="gutter gl"><pre class="lineno">1
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><table class="rouge-table"><tbody><tr><td class="gutter gl"><pre class="lineno">1
 2
 3
 4
@@ -2199,30 +2099,18 @@ graph data structures and algorithms to implement it. We will thus implement our
 10
 11
 12
-13
-14
-15
-16
-17
-18
-</pre></td><td class="code"><pre><span class="n">compute_epsilon_closure</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">grammar</span><span class="p">)</span>
-<span class="p">{</span> 
-  <span class="n">epsilon_closure_set</span> <span class="o">=</span> <span class="p">{</span><span class="n">item</span><span class="p">};</span>
-  <span class="n">queue</span><span class="p">.</span><span class="n">enqueue</span><span class="p">(</span><span class="n">item</span><span class="p">);</span>
+</pre></td><td class="code"><pre><span class="n">compute_epsilon_closure</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">grammar</span><span class="p">):</span>
+  <span class="n">epsilon_closure_set</span> <span class="o">=</span> <span class="p">{</span><span class="n">item</span><span class="p">}</span>
+  <span class="n">queue</span><span class="p">.</span><span class="n">enqueue</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
   
-  <span class="k">while</span> <span class="p">(</span><span class="n">queue</span> <span class="n">is</span> <span class="n">non</span><span class="o">-</span><span class="n">empty</span><span class="p">)</span> <span class="p">{</span>
-    <span class="n">current_item</span> <span class="o">=</span> <span class="n">queue</span><span class="p">.</span><span class="n">dequeue</span><span class="p">();</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">current_item</span> <span class="n">has</span> <span class="n">the</span> <span class="n">dot</span> <span class="n">before</span> <span class="n">a</span> <span class="n">non</span> <span class="n">terminal</span><span class="p">)</span> <span class="p">{</span>
-      <span class="k">for</span> <span class="p">(</span><span class="n">production</span> <span class="o">:</span> <span class="n">productions</span> <span class="n">of</span> <span class="n">non</span> <span class="n">terminal</span><span class="p">)</span> <span class="p">{</span>
-        <span class="n">next_item</span> <span class="o">=</span> <span class="n">construct</span> <span class="n">item</span> <span class="k">for</span> <span class="n">the</span> <span class="n">production</span> <span class="n">with</span> <span class="n">dot</span> <span class="n">on</span> <span class="n">the</span> <span class="n">left</span> <span class="n">side</span> <span class="n">of</span> <span class="n">the</span> <span class="n">body</span><span class="p">;</span>
-        <span class="k">if</span> <span class="p">(</span><span class="n">next</span> <span class="n">item</span> <span class="n">is</span> <span class="n">not</span> <span class="n">already</span> <span class="n">in</span> <span class="n">the</span> <span class="n">epsilon</span> <span class="n">closure</span> <span class="n">set</span><span class="p">)</span> <span class="p">{</span>
-          <span class="n">epsilon_closure_set</span><span class="p">.</span><span class="n">insert</span><span class="p">(</span><span class="n">next_item</span><span class="p">);</span>
-          <span class="n">queue</span><span class="p">.</span><span class="n">enqueue</span><span class="p">(</span><span class="n">next_item</span><span class="p">);</span>
-        <span class="p">}</span>
-      <span class="p">}</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-<span class="p">}</span>
+  <span class="k">while</span> <span class="n">queue</span> <span class="ow">is</span> <span class="n">non</span><span class="o">-</span><span class="n">empty</span> <span class="p">{</span>
+    <span class="n">current_item</span> <span class="o">=</span> <span class="n">queue</span><span class="p">.</span><span class="n">dequeue</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">current_item</span> <span class="n">has</span> <span class="n">dot</span> <span class="n">before</span> <span class="n">a</span> <span class="n">non</span> <span class="n">terminal</span><span class="p">:</span>
+      <span class="k">for</span> <span class="n">production</span> <span class="ow">in</span> <span class="n">productions</span> <span class="n">of</span> <span class="n">non</span> <span class="n">terminal</span><span class="p">:</span>
+        <span class="n">next_item</span> <span class="o">=</span> <span class="n">construct</span> <span class="n">item</span> <span class="k">for</span> <span class="n">the</span> <span class="n">production</span> <span class="k">with</span> <span class="n">dot</span> <span class="n">on</span> <span class="n">the</span> <span class="n">left</span> <span class="n">side</span> <span class="n">of</span> <span class="n">the</span> <span class="n">body</span>
+        <span class="k">if</span> <span class="nb">next</span> <span class="n">item</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">already</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">epsilon</span> <span class="n">closure</span> <span class="nb">set</span>
+          <span class="n">epsilon_closure_set</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="n">next_item</span><span class="p">)</span>
+          <span class="n">queue</span><span class="p">.</span><span class="n">enqueue</span><span class="p">(</span><span class="n">next_item</span><span class="p">)</span>
 </pre></td></tr></tbody></table></code></pre></figure>
 
 <p>To make the illustrations concise, we collect all the items that belong to the same closure set into item sets. The above closure set
@@ -2253,9 +2141,7 @@ We compute the epsilon closure of the new state; it looks like this.</p>
 
 <p><img src="/static/img/compilers/grammar_add_mul_bfs_complete.png" class="rounded mx-auto d-block" /></p>
 
-<p>What data structure should we use to represent the above automaton? It is a graph so adjacency lists would be our first choice. Here is the adjacency
-list representation of the above automaton.</p>
-
+<p>The above graph can be represented by the following adjacency list.</p>
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span>
   <span class="mi">0</span><span class="p">:</span> <span class="p">{</span><span class="s">"expr"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s">"term"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s">"factor"</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="s">"number"</span><span class="p">:</span> <span class="mi">4</span><span class="p">},</span>
   <span class="mi">1</span><span class="p">:</span> <span class="p">{</span><span class="s">"+"</span><span class="p">:</span> <span class="mi">5</span><span class="p">},</span>
@@ -2266,14 +2152,14 @@ list representation of the above automaton.</p>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<p>However, there are some differences between the directed graphs and the above automaton.</p>
+<p>However, there are some differences between directed graphs and the above automaton.</p>
 <ol>
   <li>When we reach a new state, we push that state on to the stack. That is, we do a shift.</li>
   <li>When we reach a state where any of the items has the dot on the right side of the body, we do a reduce using that production, depending on the
 next input token.</li>
 </ol>
 
-<p>We need to modify our above representation to handle shift and reduce actions. To support shift, we add a prefix <code class="language-plaintext highlighter-rouge">s</code> to each state that is the
+<p>We need to modify our above representation to handle shift and reduce actions. To support shift, we add a prefix “s” to each state that is the
 result of a state and a transition symbol.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span>
@@ -2316,10 +2202,9 @@ result of a state and a transition symbol.</p>
 
 <div>
   <p>
-    Now, let us take state 7 of the above automaton as an example. It has an item of production 2 with the dot on the right side of the production. Remember
-    that when we encountered a state like that before, we did a reduce if the next symbol in the input is in the follow set of the head of the production.
-    Thus, we do a reduce using the production 2 if we are in state 7 and the next input token is either \(+\) or \($\). We add that information to our
-    data structure by adding the entry <code class="language-plaintext highlighter-rogue">r2</code> for \((7, +)\) and \((7, $)\) in the automaton.
+    Let's take state 7 of the above automaton as an example. It has an item of production 2 with the dot on the right side of the production. 
+    We do a reduce using production 2 if we are in state 7 and the next input token is either \(+\) or \($\) which are in the follow set of \(expr\).
+    We add that information to our data structure by adding the entry "r2" for \((7, +)\) and \((7, $)\) in the automaton.
   </p>
 </div>
 
@@ -2339,10 +2224,9 @@ result of a state and a transition symbol.</p>
   <li>For each symbol in the follow set of the head of the reducible item, we add entries for that state and that symbol for the correponding reduction.</li>
 </ol>
 
-<p>The above data structure called a <em>parsing table</em>. It can be constructed by doing a breadth first search starting from the start state. We
-do not need to construct an explicit automaton. Here is the algorithm.</p>
+<p>The above data structure called a <em>parsing table</em>. It can be constructed by doing a breadth first search.</p>
 
-<figure class="highlight"><pre><code class="language-cpp" data-lang="cpp"><table class="rouge-table"><tbody><tr><td class="gutter gl"><pre class="lineno">1
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><table class="rouge-table"><tbody><tr><td class="gutter gl"><pre class="lineno">1
 2
 3
 4
@@ -2371,41 +2255,33 @@ do not need to construct an explicit automaton. Here is the algorithm.</p>
 27
 28
 29
-30
-31
-32
-33
-</pre></td><td class="code"><pre><span class="n">construct_parsing_table</span><span class="p">(</span><span class="n">grammar</span><span class="p">)</span> <span class="p">{</span>
-  <span class="n">productions_list</span> <span class="o">=</span> <span class="n">grammar</span><span class="p">.</span><span class="n">get_productions</span><span class="p">();</span>
+</pre></td><td class="code"><pre><span class="n">construct_parsing_table</span><span class="p">(</span><span class="n">grammar</span><span class="p">):</span>
+  <span class="n">productions_list</span> <span class="o">=</span> <span class="n">grammar</span><span class="p">.</span><span class="n">get_productions</span><span class="p">()</span>
   
-  <span class="n">start_production</span> <span class="o">=</span> <span class="n">grammar</span><span class="p">.</span><span class="n">get_start_production</span><span class="p">();</span>
-  <span class="n">start_item_set</span> <span class="o">=</span> <span class="n">construct_item_set</span><span class="p">(</span><span class="n">start_production</span><span class="p">);</span>
+  <span class="n">start_production</span> <span class="o">=</span> <span class="n">grammar</span><span class="p">.</span><span class="n">get_start_production</span><span class="p">()</span>
+  <span class="n">start_item_set</span> <span class="o">=</span> <span class="n">construct_item_set</span><span class="p">(</span><span class="n">start_production</span><span class="p">)</span>
   
-  <span class="n">queue</span><span class="p">.</span><span class="n">enqueue</span><span class="p">(</span><span class="n">start_production</span><span class="p">);</span>
+  <span class="n">queue</span><span class="p">.</span><span class="n">enqueue</span><span class="p">(</span><span class="n">start_production</span><span class="p">)</span>
 
-  <span class="n">parsing_table</span> <span class="o">=</span> <span class="p">{};</span>
-  <span class="c1">// BFS to compute shift moves.</span>
-  <span class="k">while</span> <span class="p">(</span><span class="o">!</span><span class="n">queue</span><span class="p">.</span><span class="n">empty</span><span class="p">())</span> <span class="p">{</span>
-    <span class="k">auto</span> <span class="n">current_state</span> <span class="o">=</span> <span class="n">queue</span><span class="p">.</span><span class="n">dequeue</span><span class="p">();</span>
-    <span class="k">for</span> <span class="p">(</span><span class="n">transition_symbol</span> <span class="o">:</span> <span class="n">current_state</span><span class="p">.</span><span class="n">get_transition_symbols</span><span class="p">())</span>
-      <span class="n">next_state</span> <span class="o">=</span> <span class="n">current_state</span><span class="p">.</span><span class="n">compute_next_state</span><span class="p">(</span><span class="n">current_state</span><span class="p">);</span>
-      <span class="n">parsing_table</span><span class="p">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">current_state</span><span class="p">,</span> <span class="n">transition_symbol</span><span class="p">,</span> <span class="s">"s next_state"</span><span class="p">);</span>
-  <span class="p">}</span>
+  <span class="n">parsing_table</span> <span class="o">=</span> <span class="p">{}</span>
+  <span class="c1"># BFS to compute shift moves.
+</span>  <span class="k">while</span> <span class="err">!</span><span class="n">queue</span><span class="p">.</span><span class="n">empty</span><span class="p">():</span>
+    <span class="n">current_state</span> <span class="o">=</span> <span class="n">queue</span><span class="p">.</span><span class="n">dequeue</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">transition_symbol</span> <span class="ow">in</span> <span class="n">current_state</span><span class="p">.</span><span class="n">get_transition_symbols</span><span class="p">():</span>
+      <span class="n">next_state</span> <span class="o">=</span> <span class="n">current_state</span><span class="p">.</span><span class="n">compute_next_state</span><span class="p">(</span><span class="n">transition_symbol</span><span class="p">)</span>
+      <span class="n">parsing_table</span><span class="p">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">current_state</span><span class="p">,</span> <span class="n">transition_symbol</span><span class="p">,</span> <span class="n">next_state</span><span class="p">)</span>
   
-  <span class="c1">// Compute reduce moves by scanning all the states.</span>
-  <span class="k">for</span> <span class="p">(</span><span class="n">item</span> <span class="n">set</span> <span class="o">:</span> <span class="n">all_item_sets</span><span class="p">())</span> <span class="p">{</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">item_set</span> <span class="n">has</span> <span class="n">items</span> <span class="n">with</span> <span class="n">dot</span> <span class="n">on</span> <span class="n">the</span> <span class="n">right</span> <span class="n">side</span><span class="p">)</span> <span class="p">{</span>
-      <span class="k">for</span> <span class="p">(</span><span class="n">item</span> <span class="o">:</span> <span class="n">item_set</span><span class="p">.</span><span class="n">get_reducible_items</span><span class="p">())</span> <span class="p">{</span>
-        <span class="n">production</span> <span class="o">=</span> <span class="n">item</span><span class="p">.</span><span class="n">get_production</span><span class="p">();</span>
-        <span class="n">production_head</span> <span class="o">=</span> <span class="n">production</span><span class="p">.</span><span class="n">get_head</span><span class="p">();</span>
-        <span class="n">production_number</span> <span class="o">=</span> <span class="n">production</span><span class="p">.</span><span class="n">get_number</span><span class="p">();</span>
-        <span class="k">for</span> <span class="p">(</span><span class="n">symbol</span> <span class="o">:</span> <span class="n">follow_set</span><span class="p">(</span><span class="n">production_head</span><span class="p">))</span>
-          <span class="n">state</span> <span class="o">=</span> <span class="n">item_set</span><span class="p">.</span><span class="n">get_state</span><span class="p">();</span>
-          <span class="n">parsing_table</span><span class="p">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">symbol</span><span class="p">,</span> <span class="s">"r production_number"</span><span class="p">);</span>
-      <span class="p">}</span>
-    <span class="p">}</span>
-  <span class="p">}</span>
-  
+  <span class="c1"># Compute reduce moves by scanning all the states.
+</span>  <span class="k">for</span> <span class="n">item_set</span> <span class="ow">in</span> <span class="n">all_item_sets</span><span class="p">():</span>
+    <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">item_set</span><span class="p">.</span><span class="n">get_reducible_items</span><span class="p">():</span>
+      <span class="k">if</span> <span class="n">item</span> <span class="n">has</span> <span class="n">dot</span> <span class="n">on</span> <span class="n">the</span> <span class="n">right</span> <span class="n">hand</span> <span class="n">side</span><span class="p">:</span> 
+        <span class="n">production</span> <span class="o">=</span> <span class="n">item</span><span class="p">.</span><span class="n">get_production</span><span class="p">()</span>
+        <span class="n">production_head</span> <span class="o">=</span> <span class="n">production</span><span class="p">.</span><span class="n">get_head</span><span class="p">()</span>
+        <span class="n">production_number</span> <span class="o">=</span> <span class="n">production</span><span class="p">.</span><span class="n">get_number</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">symbol</span> <span class="ow">in</span> <span class="n">follow_set</span><span class="p">(</span><span class="n">production_head</span><span class="p">)</span>
+          <span class="n">state</span> <span class="o">=</span> <span class="n">item_set</span><span class="p">.</span><span class="n">get_state</span><span class="p">()</span>
+          <span class="n">parsing_table</span><span class="p">.</span><span class="n">add_entry</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">symbol</span><span class="p">,</span> <span class="s">"r production_number"</span><span class="p">)</span>
+
   <span class="k">return</span> <span class="n">parsing_table</span><span class="p">;</span>
 <span class="p">}</span>
 </pre></td></tr></tbody></table></code></pre></figure>
@@ -2425,7 +2301,7 @@ do not need to construct an explicit automaton. Here is the algorithm.</p>
 <span class="p">}</span>
 </code></pre></div></div>
 
-<p>Let us do an example run of the above parsing table on the input <code class="language-plaintext highlighter-rouge">number + number * number</code>. We add a column for explanations.</p>
+<p>Let us do an example run of the above parsing table on the input “number + number * number”. We add a column for explanations.</p>
 
 <table class="table table-bordered">
   <thead>
@@ -2512,6 +2388,13 @@ do not need to construct an explicit automaton. Here is the algorithm.</p>
 <p>Notice that all the information we need to make parsing moves is contained in the parsing table. We no longer need to look at a production list or
 follow sets to execute parsing actions. We thus have solved the main problem we were pursuing. Parsing tables are the implementations for context-free
 grammars.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+<p>What is the output of a parser? We can return a boolean indicating whether the input is parseable. But we need to return more information. Specifically, the
+reduce moves we did might be interesting to the later phases of the compiler.</p>
+
+<p>We need to define more concepts before we can discuss the output of a parser. Specifically, we need to execute actions whenever a reduction happens.
+This subject will be treated in the next article.</p>
 
     </div>
   </div>

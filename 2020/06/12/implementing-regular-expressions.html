@@ -41,7 +41,7 @@
     <div class="col">
       <h1 class="text-center">Implementing regular expressions</h1>
 <p><br /></p>
-<h2 id="1-introduction">1. Introduction</h2>
+<h2 id="introduction">Introduction</h2>
 <p>The first thing we do when we try to understand some program text is to divide it. For example, “12 + 34” can be divided into “12”, “+”, and “34”.
 If we want to include spaces, we can divide them as “12”, “ “, “+”, “ “, and “34”. Or if we are crazy, we can divide them as “12 +” and “34”.</p>
 
@@ -59,7 +59,7 @@ can be implemented. After we have discussed these implementations, we will put t
 <p>This article assumes that you are comfortable with basic data structures and algorithms. We will use arrays, strings, hash tables, directed graphs, and
 recursion to develop the concepts in this article.</p>
 
-<h2 id="2-representing-string-patterns">2. Representing string patterns</h2>
+<h2 id="representing-string-patterns">Representing string patterns</h2>
 <p>So how do we describe string patterns? One widely used notation is called <em>regular expression</em>. To understand regular expressions though,
 we need to define some new concepts.</p>
 
@@ -201,7 +201,7 @@ represent string patterns.</p>
   The language described by regular expressions are called regular languages.
 </div>
 
-<h2 id="4-finite-automata">4. Finite Automata</h2>
+<h2 id="finite-automata">Finite Automata</h2>
 <p>Finite automata is another mechanism to describe languages. Starting from directed graphs, we we will develop the concept of finite automata.</p>
 
 <h4 id="transition-tables-and-transition-graphs">Transition tables and transition graphs</h4>
@@ -384,7 +384,7 @@ to itself.</p>
   \implies closure(1) &amp;= \{1, 2, 5, 8\} \\
 \end{align*}\]
 
-<h4 id="finite-automata">Finite automata</h4>
+<h4 id="finite-automata-1">Finite automata</h4>
 <p>We now have all the pieces we need to define finite automata.</p>
 
 <div class="definition">
@@ -441,7 +441,7 @@ is represented by the following transition table.</p>
 
 <p>The language defined by the above automaton is {“ab”, “cd”}.</p>
 
-<h2 id="5-implementing-regular-expressions-using-finite-automata">5. Implementing regular expressions using finite automata.</h2>
+<h2 id="implementing-regular-expressions-using-finite-automata">Implementing regular expressions using finite automata.</h2>
 <p>Both finite automata and regular expressions define languages. More importantly, <em>every regular expression has an equivalent finite automaton</em>. We won’t
 give a proof of this statement in this article.</p>
 
@@ -538,7 +538,7 @@ That is, we do the following:</p>
 <span class="n">combine_using_concatenation</span><span class="p">(</span><span class="n">automaton_for_a_b</span><span class="p">,</span> <span class="n">automaton_for_c_d</span><span class="o">*</span><span class="p">)</span>
 </code></pre></div></div>
 
-<h2 id="6-tokenization">6. Tokenization</h2>
+<h2 id="tokenization">Tokenization</h2>
 <p>Using regular expressions and their finite automata implementations, we can implement a tokenizer. Given a set of regular expressions, a tokenizer divides
 a string into substrings.</p>
 
