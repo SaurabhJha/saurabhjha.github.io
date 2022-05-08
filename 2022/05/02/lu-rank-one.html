@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+    <!-- My CSS -->
+    <link rel="stylesheet" href="/static/css/index.css">
+    <link rel="stylesheet" href="/static/css/pygments/default.css"/>
+
+    <!-- Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans&display=swap" rel="stylesheet">
+
+    <script type="text/javascript">
+      window.heap=window.heap||[],heap.load=function(e,t){window.heap.appid=e,window.heap.config=t=t||{};var r=t.forceSSL||"https:"===document.location.protocol,a=document.createElement("script");a.type="text/javascript",a.async=!0,a.src=(r?"https:":"http:")+"//cdn.heapanalytics.com/js/heap-"+e+".js";var n=document.getElementsByTagName("script")[0];n.parentNode.insertBefore(a,n);for(var o=function(e){return function(){heap.push([e].concat(Array.prototype.slice.call(arguments,0)))}},p=["addEventProperties","addUserProperties","clearEventProperties","identify","removeEventProperty","setEventProperties","track","unsetEventProperty"],c=0;c<p.length;c++)heap[p[c]]=o(p[c])};heap.load("1137444401");</script>
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+    <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+    <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async
+            src="https://cdn.jsdelivr.net/npm/mathjax@3.0.1/es5/tex-mml-chtml.js">
+    </script>
+    <script>
+      window.MathJax = {
+          tex: {
+              tags: 'ams'
+          }
+      };
+    </script>
+    <title>Expressing LU factorization using rank one matrices</title>
+  </head>
+  <body>
+    <div class="container">
+  <div class="row">
+    <div class="col">
+      <h1 class="text-center">Expressing LU factorization using rank one matrices</h1>
+<p><br />
+<em>This is the second article in the study of rank one matrices. You can find all articles related to rank one matrices <a href="/categories/rank-one/">here</a>.</em></p>
+
+<p>In the <a href="/2022/01/03/matrix-multiplication-rank-one.html">last article</a>, we looked at expressing matrix multiplication using rank one matrices. In this article, we will study LU factorization using rank one matrices.</p>
+
+<h2 id="prerequisites">Prerequisites</h2>
+<p>We are assuming that you are familiar with linear algebra corresponding to a typical undergrad course. In particular, we are assuming that you are familiar with Gaussian elimination and LU factorization.</p>
+
+<h2 id="running-example">Running example</h2>
+<p>In LU factorization, we take a square matrix and turn it into an upper triangular matrix. As our running example, we will look at the following matrix. Let’s turn it into an upper triangular matrix using a sequence of row operations.</p>
+
+<div>
+  $$
+  \begin{align*}
+    A = \begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1 \\
+      0 &amp; -1 &amp; -1 &amp; 0 \\
+      3 &amp; -3 &amp; -2 &amp; 4 \\
+      2 &amp; 0 &amp; 2 &amp; 0
+    \end{bmatrix}.
+  \end{align*}
+  $$
+</div>
+
+<p>The sequence of row operations along with the intermediate matrices are as follows.</p>
+
+<div>
+  $$
+  \begin{align*}
+    &amp;\begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1 \\
+      0 &amp; -1 &amp; -1 &amp; 0 \\
+      3 &amp; -3 &amp; -2 &amp; 4 \\
+      2 &amp; 0 &amp; 2 &amp; 0
+    \end{bmatrix} \\ \\
+    \overset{\mbox{row2 = row2 + 0.row1}}{\longrightarrow}
+    &amp;\begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1 \\
+      0 &amp; -1 &amp; -1 &amp; 0 \\
+      3 &amp; -3 &amp; -2 &amp; 4 \\
+      2 &amp; 0 &amp; 2 &amp; 0
+    \end{bmatrix} \\ \\
+    \overset{\mbox{row3 = row3 + (-3).row1}}{\longrightarrow}
+    &amp;\begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1 \\
+      0 &amp; -1 &amp; -1 &amp; 0 \\
+      0 &amp; 0 &amp; 1 &amp; 1 \\
+      2 &amp; 0 &amp; 2 &amp; 0
+    \end{bmatrix} \\ \\
+    \overset{\mbox{row4 = row4 + (-2).row1}}{\longrightarrow}
+    &amp;\begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1 \\
+      0 &amp; -1 &amp; -1 &amp; 0 \\
+      0 &amp; 0 &amp; 1 &amp; 1 \\
+      0 &amp; 2 &amp; 4 &amp; -2
+    \end{bmatrix} \\ \\
+    \overset{\mbox{row3 = row3 + 0.row2}}{\longrightarrow}
+    &amp;\begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 0 \\
+      0 &amp; -1 &amp; -1 &amp; 0 \\
+      0 &amp; 0 &amp; 1 &amp; 1 \\
+      0 &amp; 2 &amp; 4 &amp; -2
+    \end{bmatrix} \\ \\
+    \overset{\mbox{row4 = row4 + 2.row2}}{\longrightarrow}
+    &amp;\begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1 \\
+      0 &amp; -1 &amp; -1 &amp; 0 \\
+      0 &amp; 0 &amp; 1 &amp; 1 \\
+      0 &amp; 0 &amp; 2 &amp; -2
+    \end{bmatrix} \\ \\
+    \overset{\mbox{row4 = row4 + (-2).row3}}{\longrightarrow}
+    &amp;\begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1 \\
+      0 &amp; -1 &amp; -1 &amp; 0 \\
+      0 &amp; 0 &amp; 1 &amp; 1 \\
+      0 &amp; 0 &amp; 0 &amp; -4
+    \end{bmatrix}.
+  \end{align*}
+  $$
+</div>
+
+<p>We reduced a square matrix into an upper triangular matrix:</p>
+
+<div>
+  $$
+  \begin{align*}
+    \begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1 \\
+      0 &amp; -1 &amp; -1 &amp; 0 \\
+      3 &amp; -3 &amp; -2 &amp; 4 \\
+      2 &amp; 0 &amp; 2 &amp; 0
+    \end{bmatrix}
+    \rightarrow
+    \begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1 \\
+      0 &amp; -1 &amp; -1 &amp; 0 \\
+      0 &amp; 0 &amp; 1 &amp; 1 \\
+      0 &amp; 0 &amp; 0 &amp; -4
+    \end{bmatrix}
+  \end{align*}
+  $$
+</div>
+<p>or</p>
+<div>
+  $$
+    A \rightarrow U.
+  $$
+</div>
+
+<p>We can express the above sequence of operations using the following matrix multiplication:</p>
+
+<div>
+  $$
+  \begin{align*}
+    \begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1 \\
+      0 &amp; -1 &amp; -1 &amp; 0 \\
+      3 &amp; -3 &amp; -2 &amp; 4 \\
+      2 &amp; 0 &amp; 2 &amp; 0
+    \end{bmatrix}
+    =
+    \begin{bmatrix}
+      1 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 1 &amp; 0 &amp; 0 \\
+      3 &amp; 0 &amp; 1 &amp; 0 \\
+      2 &amp; -2 &amp; 2 &amp; 1
+    \end{bmatrix}
+    \begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1 \\
+      0 &amp; -1 &amp; -1 &amp; 0 \\
+      0 &amp; 0 &amp; 1 &amp; 1 \\
+      0 &amp; 0 &amp; 0 &amp; -4
+    \end{bmatrix}
+  \end{align*}
+  $$
+  <p>or</p>
+  $$
+  \begin{align*}
+    A = LU.
+  \end{align*}
+  $$
+</div>
+
+<p>That was LU factorization using row operations. We will now look at an alternative way that uses rank one matrices.</p>
+
+<h2 id="computing-rank-one-components">Computing rank one components</h2>
+<p>When we say that we want to express LU factorization using rank one matrices, we are saying that we want to achieve</p>
+
+<div>
+  $$
+  \begin{align*}
+    A = LU = \sum_{k=1}^{n} l_ku_k,
+  \end{align*}
+  $$
+</div>
+
+<div>
+  <p>
+    where each summation term, \(l_ku_k\), is of rank one.
+  </p>
+  <p>
+   Our strategy is going to be to succesively extract rank one components from a matrix and reduce it's rank on each extraction till we are left with a rank zero matrix. For example, if we denote a rank n matrix by \(A_{n}\), where the subscript denotes the matrix rank, it would look like this.
+  </p>
+  $$
+  \begin{align*}
+    &amp; \space A_{n} \\
+    = &amp; \space l_1u_1 + A_{n - 1} \\
+    = &amp; \space l_1u_1 + l_2u_2 + A_{n - 2} \\
+    &amp; \space ... \\
+    = &amp; \space \sum_{k=1}^{n} l_ku_k.
+  \end{align*}
+  $$
+</div>
+
+<p>To achieve this, we will look at the row operations that we did above and reorganize them so that they extract rank one components. The row operations in the above example are these.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">row2</span> <span class="o">=</span> <span class="n">row2</span> <span class="o">+</span> <span class="mf">0.</span><span class="n">row1</span>
+<span class="n">row3</span> <span class="o">=</span> <span class="n">row3</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">).</span><span class="n">row1</span>
+<span class="n">row4</span> <span class="o">=</span> <span class="n">row4</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">).</span><span class="n">row1</span>
+<span class="n">row3</span> <span class="o">=</span> <span class="n">row3</span> <span class="o">+</span> <span class="mf">0.</span><span class="n">row2</span>
+<span class="n">row4</span> <span class="o">=</span> <span class="n">row4</span> <span class="o">+</span> <span class="mf">2.</span><span class="n">row2</span>
+<span class="n">row4</span> <span class="o">=</span> <span class="n">row4</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">).</span><span class="n">row3</span>
+</code></pre></div></div>
+
+<p>In each of these operations, we use a pivot row to manipulate the rows below the pivot rows. For example, in the first three instructions, the pivot row is <code class="language-plaintext highlighter-rouge">row1</code>, in the next two instructions, the pivot row is <code class="language-plaintext highlighter-rouge">row2</code> and in the last instruction, the pivot row is <code class="language-plaintext highlighter-rouge">row3</code>.</p>
+
+<p>We can group these instructions by the pivot row involved. That is, we can group them by the second operand of addition. This results in the following groups.</p>
+
+<p>Group1:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">row2</span> <span class="o">=</span> <span class="n">row2</span> <span class="o">+</span> <span class="mf">0.</span><span class="n">row1</span>
+<span class="n">row3</span> <span class="o">=</span> <span class="n">row3</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">).</span><span class="n">row1</span>
+<span class="n">row4</span> <span class="o">=</span> <span class="n">row4</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">).</span><span class="n">row1</span>
+</code></pre></div></div>
+
+<p>Group2:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">row3</span> <span class="o">=</span> <span class="n">row3</span> <span class="o">+</span> <span class="mf">0.</span><span class="n">row2</span>
+<span class="n">row4</span> <span class="o">=</span> <span class="n">row4</span> <span class="o">+</span> <span class="mf">2.</span><span class="n">row2</span>
+</code></pre></div></div>
+
+<p>Group3:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">row4</span> <span class="o">=</span> <span class="n">row4</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">).</span><span class="n">row3</span>
+</code></pre></div></div>
+
+<p>As we will see, each of these groups is going to lead to the extraction of a rank one component. Our other requirement was to reduce the rank of the matrix by one on each rank one extraction. To achieve that, we turn the pivot row into zero. This results in the following four groups.</p>
+
+<p>Group1:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">row1</span> <span class="o">=</span> <span class="n">row1</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">).</span><span class="n">row1</span>
+<span class="n">row2</span> <span class="o">=</span> <span class="n">row2</span> <span class="o">+</span> <span class="mf">0.</span><span class="n">row1</span>
+<span class="n">row3</span> <span class="o">=</span> <span class="n">row3</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="mi">3</span><span class="p">).</span><span class="n">row1</span>
+<span class="n">row4</span> <span class="o">=</span> <span class="n">row4</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">).</span><span class="n">row1</span>
+</code></pre></div></div>
+
+<p>Group2:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">row2</span> <span class="o">=</span> <span class="n">row2</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">).</span><span class="n">row2</span>
+<span class="n">row3</span> <span class="o">=</span> <span class="n">row3</span> <span class="o">+</span> <span class="mf">0.</span><span class="n">row2</span>
+<span class="n">row4</span> <span class="o">=</span> <span class="n">row4</span> <span class="o">+</span> <span class="mf">2.</span><span class="n">row2</span>
+</code></pre></div></div>
+
+<p>Group3:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">row3</span> <span class="o">=</span> <span class="n">row3</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">).</span><span class="n">row3</span>
+<span class="n">row4</span> <span class="o">=</span> <span class="n">row4</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">).</span><span class="n">row3</span>
+</code></pre></div></div>
+
+<p>Group4:</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">row4</span> <span class="o">=</span> <span class="n">row4</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">).</span><span class="n">row4</span>
+</code></pre></div></div>
+
+<p>Let’s apply these operations to our example matrix group by group. After applying group1, the result is</p>
+
+<div>
+  $$
+  \begin{align*}
+    \begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1 \\
+      0 &amp; -1 &amp; -1 &amp; 0 \\
+      3 &amp; -3 &amp; -2 &amp; 4 \\
+      2 &amp; 0 &amp; 2 &amp; 0
+    \end{bmatrix}
+    \overset{\mbox{group1}}\longrightarrow
+    \begin{bmatrix}
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; -1 &amp; -1 &amp; 0 \\
+      0 &amp; 0 &amp; 1 &amp; 1 \\
+      0 &amp; 2 &amp; 4 &amp; -2
+    \end{bmatrix}.
+  \end{align*}  
+  $$
+</div>
+
+<div>
+  <p>
+    Let's denote the matrix on the right hand side of the arrow by \(A_{group1}\), where \(A_{group1}\) stands for "\(A\) after group1".
+  </p>
+</div>
+
+<div>
+  $$
+  \begin{align*}
+    A \longrightarrow A_{group1}.
+  \end{align*}
+  $$
+</div>
+
+<div>
+  <p>
+    We can express the above transformation using the following matrix addition,
+  </p>
+  $$
+  \begin{align*}
+    &amp; A = A_{group1} + O_{group1} \\
+    \implies &amp; O_{group1} = A - A_{group1},
+  \end{align*}
+  $$
+  <p>
+    where \(O_{group1}\) stands for "operations of group1".
+  </p>
+</div>
+
+<div>
+  <p>Calculating \(O_{group1}\) using \(A\) and \(A_{group1}\), we have</p>
+  $$
+  \begin{align*}
+    O_{group1} = 
+    &amp; \begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1 \\
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      3 &amp; -3 &amp; -3 &amp; 3 \\
+      2 &amp; -2 &amp; -2 &amp; 2
+      \end{bmatrix}.
+  \end{align*}
+  $$
+</div>
+
+<div>
+  <p>
+    Notice that \(O_{group1}\) is a rank one matrix. All of its rows are multiples of the first row. We can therefore express \(O_{group1}\) in rank one form.
+  </p>
+  $$
+  \begin{align*}
+    O_{group1} = l_1u_1 =
+    \begin{bmatrix}
+      1 \\
+      0 \\
+      3 \\
+      2
+    \end{bmatrix}
+    \begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1
+    \end{bmatrix}.
+  \end{align*}
+  $$
+</div>
+
+<div>
+  We can thus write \(A = A_{group1} + O_{group1}\) as
+  $$
+  \begin{align*}
+    A = l_1u_1 + A_{group1}.
+  \end{align*}
+  $$
+</div>
+
+<p>Now let’s apply group2 operations which we repeat below.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">row2</span> <span class="o">=</span> <span class="n">row2</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">).</span><span class="n">row2</span>
+<span class="n">row3</span> <span class="o">=</span> <span class="n">row3</span> <span class="o">+</span> <span class="mf">0.</span><span class="n">row2</span>
+<span class="n">row4</span> <span class="o">=</span> <span class="n">row4</span> <span class="o">+</span> <span class="mf">2.</span><span class="n">row2</span>
+</code></pre></div></div>
+
+<div>
+  <p>
+    We will apply group2 operations to \(A_{group1}\). Doing that results in
+  </p>
+</div>
+
+<div>
+  $$
+  \begin{align*}
+    &amp; \begin{bmatrix}
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; -1 &amp; -1 &amp; 0 \\
+      0 &amp; 0 &amp; 1 &amp; 1 \\
+      0 &amp; 2 &amp; 4 &amp; -2
+    \end{bmatrix}
+    \overset{\mbox{group2}}\longrightarrow
+    \begin{bmatrix}
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 1 &amp; 1 \\
+      0 &amp; 0 &amp; 2 &amp; -2
+    \end{bmatrix} \\
+    \implies
+    &amp; A_{group1} \rightarrow A_{group2} \\
+    \implies
+    &amp; A_{group1} = A_{group2} + O_{group2} \\
+    \implies
+    &amp; O_{group2} = A_{group1} - A_{group2}.
+  \end{align*}  
+  $$
+
+  <p>
+    Evaluating \(O_{group2}\), we have
+  </p>
+  $$
+  \begin{align*}  
+    &amp; O_{group2} =
+    \begin{bmatrix}
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; -1 &amp; -1 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 2 &amp; 2 &amp; 0
+    \end{bmatrix} \\
+    &amp; O_{group2} = l_2u_2 =
+    \begin{bmatrix}
+      0 \\
+      1 \\
+      0 \\
+      -2
+    \end{bmatrix}
+    \begin{bmatrix}
+      0 &amp; -1 &amp; -1 &amp; 0
+    \end{bmatrix}.
+  \end{align*}
+  $$
+
+  <p>
+    Earlier, we determined that \(A = l_1u_1 + A_{group1}\). Substituting \(A_{group1} = l_2u_2 + A_{group2}\), we have
+  </p>
+  $$
+  \begin{align*}
+    &amp; A = l_1u_1 + l_2u_2 + A_{group2}.
+  \end{align*}
+  $$
+
+  <p>
+    Let's now apply group3 operations to \(A_{group2}\). The group3 operations are these.
+  </p>
+</div>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">row3</span> <span class="o">=</span> <span class="n">row3</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">).</span><span class="n">row3</span>
+<span class="n">row4</span> <span class="o">=</span> <span class="n">row4</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">).</span><span class="n">row3</span>
+</code></pre></div></div>
+
+<p>This results in</p>
+<div>
+  $$
+  \begin{align*}
+    &amp; \begin{bmatrix}
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 1 &amp; 1 \\
+      0 &amp; 0 &amp; 2 &amp; -2
+    \end{bmatrix}
+    \overset{\mbox{group3}}\longrightarrow
+    \begin{bmatrix}
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; -4
+    \end{bmatrix} \\
+    \implies
+    &amp; A_{group2} = O_{group3} + A_{group3} \\
+    \implies
+    &amp; O_{group2} = A_{group2} - A_{group3} \\
+    \implies
+    &amp; O_{group3} =
+    \begin{bmatrix}
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 1 &amp; 1 \\
+      0 &amp; 0 &amp; 2 &amp; 2
+    \end{bmatrix} \\
+    \implies
+    &amp; O_{group3} = l_3u_3 =
+    \begin{bmatrix}
+      0 \\
+      0 \\
+      1 \\
+      2 \\
+    \end{bmatrix}
+    \begin{bmatrix}
+      0 &amp; 0 &amp; 1 &amp; 1
+    \end{bmatrix}.
+  \end{align*}
+  $$
+</div>
+
+<p>The situation now looks like</p>
+
+<div>
+  $$
+  \begin{align*}
+    A = l_1u_1 + l_2u_2 + l_3u_3 + A_{group3}.
+  \end{align*}
+  $$
+
+  Finally, \(A_{group3}\) is
+  $$
+  \begin{align*}
+    A_{group3} = \begin{bmatrix}
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; -4
+    \end{bmatrix}.
+  \end{align*}
+  $$
+</div>
+
+<p>The group4 operations is a single operation.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">row4</span> <span class="o">=</span> <span class="n">row4</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">).</span><span class="n">row4</span>
+</code></pre></div></div>
+
+<div>
+  Applying group4 to \(A_{group3}\) results in
+  $$
+  \begin{align*}
+    &amp; \begin{bmatrix}
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; -4
+    \end{bmatrix}
+    \overset{\mbox{group4}}\longrightarrow
+    \begin{bmatrix}
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; 0
+    \end{bmatrix} \\
+    \implies
+    &amp; A_{group3} = O_{group4} + A_{group4} \\
+    \implies
+    &amp; O_{group4} = A_{group3} - A_{group4} \\
+    \implies
+    &amp; O_{group4} = \begin{bmatrix}
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; -4
+    \end{bmatrix} \\
+    \implies
+    &amp; O_{group4} = l_4u_4 =
+    \begin{bmatrix}
+      0 \\
+      0 \\
+      0 \\
+      1
+    \end{bmatrix}
+    \begin{bmatrix}
+      0 &amp; 0 &amp; 0 &amp; -4
+    \end{bmatrix}.
+  \end{align*}
+  $$
+
+  <p>
+    After applying all four groups, it looks like
+  </p>
+  $$
+  \begin{align*}
+    A = l_1u_1 + l_2u_2 + l_3u_3 + l_4u_4 + A_{group4}.
+  \end{align*}
+  $$
+  <p>
+    Since \(A_{group4}\) is a zero matrix, we have
+  </p>
+  $$
+  \begin{align*}
+    A = l_1u_1 + l_2u_2 + l_3u_3 + l_4u_4
+  \end{align*}
+  $$
+  $$
+  \begin{align*}
+    \implies
+    A =
+    \begin{bmatrix}
+      1 \\
+      0 \\
+      3 \\
+      2
+    \end{bmatrix}
+    \begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1
+    \end{bmatrix} +
+    \begin{bmatrix}
+      0 \\
+      1 \\
+      0 \\
+      -2
+    \end{bmatrix}
+    \begin{bmatrix}
+      0 &amp; -1 &amp; -1 &amp; 0
+    \end{bmatrix} +
+    \begin{bmatrix}
+      0 \\
+      0 \\
+      1 \\
+      2 \\
+    \end{bmatrix}
+    \begin{bmatrix}
+      0 &amp; 0 &amp; 1 &amp; 1
+    \end{bmatrix} +
+    \begin{bmatrix}
+      0 \\
+      0 \\
+      0 \\
+      1
+    \end{bmatrix}
+    \begin{bmatrix}
+      0 &amp; 0 &amp; 0 &amp; -4
+    \end{bmatrix}.
+  \end{align*}
+  $$
+  <p>Using rank one multiplication, we have the answer</p>
+  $$
+  \begin{align*}
+    A =
+    \begin{bmatrix}
+      1 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 1 &amp; 0 &amp; 0 \\
+      3 &amp; 0 &amp; 1 &amp; 0 \\
+      2 &amp; -2 &amp; 2 &amp; 1
+    \end{bmatrix}
+    \begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1 \\
+      0 &amp; -1 &amp; -1 &amp; 0 \\
+      0 &amp; 0 &amp; 1 &amp; 1 \\
+      0 &amp; 0 &amp; 0 &amp; -4
+    \end{bmatrix}.
+  \end{align*}
+  $$
+</div>
+
+<h2 id="algorithm">Algorithm</h2>
+<div>
+  <p>
+    In our above discussion, we reused the existing row operations to extract rank one components. Let's try to come up with the \(l_ku_k\) components in a different way.
+  </p>
+  <p>
+    What happens when we extract \(l_1u_1\) from our matrix \(A\)? The original matrix was
+  </p>
+  $$
+  \begin{align*}
+    A = \begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1 \\
+      0 &amp; -1 &amp; -1 &amp; 0 \\
+      3 &amp; -3 &amp; -2 &amp; 4 \\
+      2 &amp; 0 &amp; 2 &amp; 0
+    \end{bmatrix}.
+  \end{align*}
+  $$
+  <p>
+    After subtracting \(l_1u_1\) from A, we need zeroes on the pivot row and on the pivot column. In LU factorization, this is done using the pivot row, which is currently the first row of A. What we want is
+  </p>
+  $$
+  \begin{align*}
+    A =
+    \begin{bmatrix}
+      a \\
+      b \\
+      c \\
+      d
+    \end{bmatrix}
+    \begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1
+    \end{bmatrix} +
+    \begin{bmatrix}
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; -1 &amp; -1 &amp; 0 \\
+      0 &amp; 0 &amp; 1 &amp; 1 \\
+      0 &amp; 2 &amp; 4 &amp; -2
+    \end{bmatrix},
+  \end{align*}
+  $$
+  <p>
+    that is, we need the right multipliers \(a\), \(b\), \(c\), and \(d\). We can get these numbers by dividing the first column entries by the pivot. So that looks like
+  </p>
+  $$
+  \begin{align*}
+    A &amp; =
+    \begin{bmatrix}
+      1 / 1 \\
+      0 / 1 \\
+      3 / 1 \\
+      2 / 1
+    \end{bmatrix}
+    \begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1
+    \end{bmatrix} +
+    \begin{bmatrix}
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; -1 &amp; -1 &amp; 0 \\
+      0 &amp; 0 &amp; 1 &amp; 1 \\
+      0 &amp; 2 &amp; 4 &amp; -2
+    \end{bmatrix} \\ \\
+    &amp; =
+    \begin{bmatrix}
+      1 \\
+      0 \\
+      3 \\
+      2 \\
+    \end{bmatrix}
+    \begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1
+    \end{bmatrix} +
+    \begin{bmatrix}
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; -1 &amp; -1 &amp; 0 \\
+      0 &amp; 0 &amp; 1 &amp; 1 \\
+      0 &amp; 2 &amp; 4 &amp; -2
+    \end{bmatrix}.
+  \end{align*}
+  $$
+  <p>
+    The first term here is \(l_1u_1\). We now need to extract a rank one component from the second matrix such that its second row and its second row column is zero. We use the second pivot row to do it. It looks like
+  </p>
+  $$
+  \begin{align*}
+     A &amp; =
+    \begin{bmatrix}
+      1 \\
+      0 \\
+      3 \\
+      2 \\
+    \end{bmatrix}
+    \begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1
+    \end{bmatrix} +
+    \begin{bmatrix}
+      a \\
+      b \\
+      c \\
+      d
+    \end{bmatrix}
+    \begin{bmatrix}
+      0 &amp; -1 &amp; -1 &amp; 0
+    \end{bmatrix} +
+    \begin{bmatrix}
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 1 &amp; 1 \\
+      0 &amp; 0 &amp; 2 &amp; -2
+    \end{bmatrix}.
+  \end{align*}
+  $$
+  <p>
+    The second pivot is -1 so dividing entries in second column by -1 gives us \(a\), \(b\), \(c\), and \(d\).
+  </p>
+  $$
+  \begin{align*}
+     A &amp; =
+    \begin{bmatrix}
+      1 \\
+      0 \\
+      3 \\
+      2 \\
+    \end{bmatrix}
+    \begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1
+    \end{bmatrix} +
+    \begin{bmatrix}
+      0 / -1 \\
+      -1 / -1 \\
+      0 / -1 \\
+      2 / -1
+    \end{bmatrix}
+    \begin{bmatrix}
+      0 &amp; -1 &amp; -1 &amp; 0
+    \end{bmatrix} +
+    \begin{bmatrix}
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 1 &amp; 1 \\
+      0 &amp; 0 &amp; 2 &amp; -2
+    \end{bmatrix} \\ \\
+    &amp; =
+    \begin{bmatrix}
+      1 \\
+      0 \\
+      3 \\
+      2 \\
+    \end{bmatrix}
+    \begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1
+    \end{bmatrix} +
+    \begin{bmatrix}
+      0 \\
+      1 \\
+      0 \\
+      -2 \\
+    \end{bmatrix}
+    \begin{bmatrix}
+      0 &amp; -1 &amp; -1 &amp; 0
+    \end{bmatrix} +
+    \begin{bmatrix}
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 1 &amp; 1 \\
+      0 &amp; 0 &amp; 2 &amp; -2
+    \end{bmatrix}
+  \end{align*}
+  $$
+  <p>
+    We now need to extract a rank one component from the third matrix. The third pivot is 1 so we can write
+  </p>
+  $$
+  \begin{align*}
+    A &amp; =
+    \begin{bmatrix}
+      1 \\
+      0 \\
+      3 \\
+      2 \\
+    \end{bmatrix}
+    \begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1
+    \end{bmatrix} +
+    \begin{bmatrix}
+      0 \\
+      1 \\
+      0 \\
+      -2 \\
+    \end{bmatrix}
+    \begin{bmatrix}
+      0 &amp; -1 &amp; -1 &amp; 0
+    \end{bmatrix} +
+    \begin{bmatrix}
+      0 \\
+      0 \\
+      1 \\
+      2 \\
+    \end{bmatrix}
+    \begin{bmatrix}
+      0 &amp; 0 &amp; 1 &amp; 1
+    \end{bmatrix} +
+    \begin{bmatrix}
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; 0 \\
+      0 &amp; 0 &amp; 0 &amp; -4
+    \end{bmatrix}.
+  \end{align*}
+  $$
+  <p>
+    Finally, we need to extract a rank one component from the fourth matrix. The pivot is -4 and it looks like. We omit the remaining zero matrix.
+  </p>
+  $$
+  \begin{align*}
+    A = 
+    \begin{bmatrix}
+      1 \\
+      0 \\
+      3 \\
+      2 \\
+    \end{bmatrix}
+    \begin{bmatrix}
+      1 &amp; -1 &amp; -1 &amp; 1
+    \end{bmatrix} +
+    \begin{bmatrix}
+      0 \\
+      1 \\
+      0 \\
+      -2 \\
+    \end{bmatrix}
+    \begin{bmatrix}
+      0 &amp; -1 &amp; -1 &amp; 0
+    \end{bmatrix} +
+    \begin{bmatrix}
+      0 \\
+      0 \\
+      1 \\
+      2 \\
+    \end{bmatrix}
+    \begin{bmatrix}
+      0 &amp; 0 &amp; 1 &amp; 1
+    \end{bmatrix} +
+    \begin{bmatrix}
+      0 \\
+      0 \\
+      0 \\
+      1
+    \end{bmatrix}
+    \begin{bmatrix}
+      0 &amp; 0 &amp; 0 &amp; -4
+    \end{bmatrix}.
+  \end{align*}
+  $$
+</div>
+
+<p>The above procedure can be described recursively as follows:</p>
+<ol>
+  <li>Base case: The matrix is zero rank.</li>
+  <li>Recursive case: Extract a rank one component and reduce the rank of the matrix by one.</li>
+</ol>
+
+<div>
+  <p>
+    The \(u_k\) factor of the rank one component is the current pivot row. We compute the \(l_k\) factor by dividing all elements of the pivot column by the pivot.
+  </p>
+</div>
+
+<h2 id="implementation">Implementation</h2>
+<p>A python implementation of the above ideas is this</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">copy</span>
+
+
+<span class="k">class</span> <span class="nc">Matrix</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">body</span><span class="p">):</span>
+        <span class="bp">self</span><span class="p">.</span><span class="n">body</span> <span class="o">=</span> <span class="n">body</span>
+
+    <span class="k">def</span> <span class="nf">get_number_of_rows</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">body</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_number_of_columns</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">get_element</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">row_idx</span><span class="p">,</span> <span class="n">col_idx</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="p">.</span><span class="n">body</span><span class="p">[</span><span class="n">row_idx</span><span class="p">][</span><span class="n">col_idx</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">get_row</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">row_idx</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Matrix</span><span class="p">([</span><span class="bp">self</span><span class="p">.</span><span class="n">body</span><span class="p">[</span><span class="n">row_idx</span><span class="p">]])</span>
+
+    <span class="k">def</span> <span class="nf">get_column</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">col_idx</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Matrix</span><span class="p">([[</span><span class="n">row</span><span class="p">[</span><span class="n">col_idx</span><span class="p">]]</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">.</span><span class="n">body</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other_matrix</span><span class="p">):</span>
+        <span class="n">new_matrix</span> <span class="o">=</span> <span class="n">copy</span><span class="p">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">row_idx</span><span class="p">,</span> <span class="p">(</span><span class="n">row1</span><span class="p">,</span> <span class="n">row2</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">body</span><span class="p">,</span> <span class="n">other_matrix</span><span class="p">.</span><span class="n">body</span><span class="p">)):</span>
+            <span class="n">new_matrix</span><span class="p">.</span><span class="n">body</span><span class="p">[</span><span class="n">row_idx</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">num1</span> <span class="o">+</span> <span class="n">num2</span> <span class="k">for</span> <span class="n">num1</span><span class="p">,</span> <span class="n">num2</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">row1</span><span class="p">,</span> <span class="n">row2</span><span class="p">)]</span>
+        <span class="k">return</span> <span class="n">new_matrix</span>
+
+    <span class="k">def</span> <span class="nf">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other_object</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other_object</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other_object</span><span class="p">,</span> <span class="nb">float</span><span class="p">):</span>
+            <span class="n">new_matrix</span> <span class="o">=</span> <span class="n">copy</span><span class="p">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">row_idx</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">body</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">col_idx</span><span class="p">,</span> <span class="n">element</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">row</span><span class="p">):</span>
+                    <span class="n">new_matrix</span><span class="p">.</span><span class="n">body</span><span class="p">[</span><span class="n">row_idx</span><span class="p">][</span><span class="n">col_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">other_object</span> <span class="o">*</span> <span class="n">element</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">new_matrix</span> <span class="o">=</span> <span class="n">Matrix</span><span class="p">([[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">other_object</span><span class="p">.</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">body</span><span class="p">))])</span>
+            <span class="k">for</span> <span class="n">row_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">.</span><span class="n">body</span><span class="p">)):</span>
+                <span class="k">for</span> <span class="n">col_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">other_object</span><span class="p">.</span><span class="n">body</span><span class="p">[</span><span class="mi">0</span><span class="p">])):</span>
+                    <span class="n">row1_list</span> <span class="o">=</span> <span class="bp">self</span><span class="p">.</span><span class="n">body</span><span class="p">[</span><span class="n">row_idx</span><span class="p">]</span>
+                    <span class="n">col2_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">row</span><span class="p">[</span><span class="n">col_idx</span><span class="p">]</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">other_object</span><span class="p">.</span><span class="n">body</span><span class="p">]</span>
+                    <span class="n">new_matrix</span><span class="p">.</span><span class="n">body</span><span class="p">[</span><span class="n">row_idx</span><span class="p">][</span><span class="n">col_idx</span><span class="p">]</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="n">num1</span> <span class="o">*</span> <span class="n">num2</span> <span class="k">for</span> <span class="n">num1</span><span class="p">,</span> <span class="n">num2</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">row1_list</span><span class="p">,</span> <span class="n">col2_list</span><span class="p">)])</span>
+        <span class="k">return</span> <span class="n">new_matrix</span>
+
+    <span class="k">def</span> <span class="nf">__sub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other_matrix</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span> <span class="o">+</span> <span class="p">(</span><span class="n">other_matrix</span> <span class="o">*</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__truediv__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scalar</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scalar</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span>  <span class="nb">isinstance</span><span class="p">(</span><span class="n">scalar</span><span class="p">,</span> <span class="nb">float</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">scalar</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="nb">ValueError</span><span class="p">(</span><span class="s">"Cannot divide a matrix by anything other than an int or a float"</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">.</span><span class="n">body</span><span class="p">:</span>
+            <span class="n">row_string_list</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">element</span><span class="p">)</span> <span class="k">if</span> <span class="n">element</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="sa">f</span><span class="s">" </span><span class="si">{</span><span class="n">element</span><span class="si">}</span><span class="s">"</span> <span class="k">for</span> <span class="n">element</span> <span class="ow">in</span> <span class="n">row</span><span class="p">]</span>
+            <span class="n">result</span><span class="p">.</span><span class="n">append</span><span class="p">(</span><span class="s">" "</span><span class="p">.</span><span class="n">join</span><span class="p">(</span><span class="n">row_string_list</span><span class="p">))</span>
+        <span class="k">return</span> <span class="s">"</span><span class="se">\n</span><span class="s">"</span><span class="p">.</span><span class="n">join</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">lu</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">current_pivot_idx</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">current_pivot_idx</span> <span class="o">==</span> <span class="n">matrix</span><span class="p">.</span><span class="n">get_number_of_rows</span><span class="p">():</span>
+        <span class="k">return</span> <span class="p">[]</span>
+
+    <span class="n">pivot</span> <span class="o">=</span> <span class="n">matrix</span><span class="p">.</span><span class="n">get_element</span><span class="p">(</span><span class="n">current_pivot_idx</span><span class="p">,</span> <span class="n">current_pivot_idx</span><span class="p">)</span>
+    <span class="n">current_u</span> <span class="o">=</span> <span class="n">matrix</span><span class="p">.</span><span class="n">get_row</span><span class="p">(</span><span class="n">current_pivot_idx</span><span class="p">)</span>
+    <span class="n">current_l</span> <span class="o">=</span> <span class="n">matrix</span><span class="p">.</span><span class="n">get_column</span><span class="p">(</span><span class="n">current_pivot_idx</span><span class="p">)</span> <span class="o">/</span> <span class="n">pivot</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="p">[(</span><span class="n">current_l</span><span class="p">,</span> <span class="n">current_u</span><span class="p">)]</span>
+    <span class="n">remaining_matrix</span> <span class="o">=</span> <span class="n">matrix</span> <span class="o">-</span> <span class="n">current_l</span> <span class="o">*</span> <span class="n">current_u</span>
+    <span class="n">result</span><span class="p">.</span><span class="n">extend</span><span class="p">(</span><span class="n">lu</span><span class="p">(</span><span class="n">remaining_matrix</span><span class="p">,</span> <span class="n">current_pivot_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">result</span>
+
+</code></pre></div></div>
+
+<h2 id="conclusion">Conclusion</h2>
+<p>The original idea behind expressing factorization using the rank one approach was to automatically infer parallelization oppurtunities. Indeed, in our recursive algorithm, each recursive step has some
+potential parallelization.</p>
+
+<p>What actually ended up happening was viewing factorization using the rank one approach helped in algorithm design. The recursive structure of LU decomposition was more prominent for me in this framework.</p>
+
+<p>It is worthwhile to go further in this direction. I am not sure where will it go and whether it will lead to anything. My strategy is not to go broad in the sense of covering other factorizations like QR or SVD but instead to go deep and implement this with all the automatic parallelization possible.</p>
+
+<p>One thing I am unhappy about is the algorithm is too detailed about where the data is coming from and going to. We need a higher level language or notation to express data dependencies that can be somehow be compiled down to actual operations. Maybe I will explore this in a future article.</p>
+
+    </div>
+  </div>
+</div>
+
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+    <script type="text/javascript">
+    $(document).ready(function() {
+    $("body").tooltip({ selector: '[data-toggle=tooltip]' });
+    });
+    </script>
+  </body>
+</html>
