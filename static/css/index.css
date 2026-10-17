@@ -79,3 +79,109 @@ mjx-container {
 .text-right {
     text-align: right;
 }
+
+/* Table of contents */
+html {
+    scroll-behavior: smooth;
+}
+h2[id], h3[id] {
+    scroll-margin-top: 24px;
+}
+
+.toc {
+    --toc-line: color-mix(in srgb, currentColor 15%, transparent);
+}
+.toc summary {
+    list-style: none;
+}
+.toc summary::-webkit-details-marker {
+    display: none;
+}
+.toc-title {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, currentColor 60%, transparent);
+}
+.toc nav {
+    margin: 0;
+}
+.toc ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.toc li {
+    margin: 0;
+    padding: 0;
+}
+.toc li::marker {
+    content: none;
+}
+.toc a {
+    display: block;
+    text-decoration: none;
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 1.4;
+    padding: 5px 0 5px 14px;
+    border-left: 2px solid var(--toc-line);
+    color: color-mix(in srgb, currentColor 60%, transparent);
+}
+.toc a:hover {
+    color: inherit;
+}
+.toc a.active {
+    color: inherit;
+    border-left-color: currentColor;
+}
+.toc ul ul a {
+    padding-left: 28px;
+    font-size: 13px;
+}
+
+/* Wide screens: sticky in the left margin, always open */
+@media (min-width: 1100px) {
+    .toc {
+        position: fixed;
+        top: 96px;
+        left: max(24px, calc((100vw - 680px) / 2 - 280px));
+        width: 230px;
+        max-height: calc(100vh - 140px);
+        overflow: auto;
+    }
+    .toc summary {
+        cursor: default;
+        margin-bottom: 10px;
+    }
+    .toc-chev {
+        display: none;
+    }
+}
+
+/* Narrow screens: collapsible card above the post body */
+@media (max-width: 1099px) {
+    .toc {
+        margin: 0 0 40px;
+        background: color-mix(in srgb, currentColor 4%, transparent);
+        border-radius: 12px;
+        padding: 0 16px;
+    }
+    .toc summary {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        padding: 12px 0;
+    }
+    .toc-chev {
+        font-size: 12px;
+    }
+    .toc[open] .toc-chev {
+        transform: rotate(180deg);
+    }
+    .toc nav {
+        padding-bottom: 12px;
+    }
+}

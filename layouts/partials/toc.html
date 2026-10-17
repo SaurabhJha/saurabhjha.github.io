@@ -1,0 +1,43 @@
+{{ if ne .Type "page" }}
+{{ if ge (len (findRE `<li>` .TableOfContents)) 3 }}
+<details class="toc" id="toc" open>
+  <summary><span class="toc-title">On this page</span><span class="toc-chev">▼</span></summary>
+  {{ .TableOfContents }}
+</details>
+<script>
+  (function () {
+    const toc = document.getElementById('toc');
+    const links = [...toc.querySelectorAll('a')];
+    // headings come after this script in the document, so look them up lazily
+    let heads = [];
+    const findHeads = () => {
+      heads = links.map((a) =>
+        document.getElementById(decodeURIComponent(a.hash.slice(1)))
+      );
+    };
+    const wide = matchMedia('(min-width:1100px)');
+    // wide: always open; narrow: start collapsed
+    const sync = () => { toc.open = wide.matches; };
+    wide.addEventListener('change', sync);
+    sync();
+    toc.querySelector('summary').addEventListener('click', (e) => {
+      if (wide.matches) e.preventDefault();
+    });
+    function spy() {
+      if (!heads.length) findHeads();
+      let cur = 0;
+      heads.forEach((h, i) => {
+        if (h && h.getBoundingClientRect().top < 120) cur = i;
+      });
+      links.forEach((a, i) => a.classList.toggle('active', i === cur));
+    }
+    addEventListener('scroll', spy, { passive: true });
+    addEventListener('load', spy);
+    // narrow: collapse after choosing an entry
+    links.forEach((a) =>
+      a.addEventListener('click', () => { if (!wide.matches) toc.open = false; })
+    );
+  })();
+</script>
+{{ end }}
+{{ end }}
